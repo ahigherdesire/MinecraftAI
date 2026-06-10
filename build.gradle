@@ -1,0 +1,110 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version '1.15-SNAPSHOT'
+    id 'java'
+}
+
+group = project.maven_group
+
+def vers = ""
+try {
+    vers = 'git describe --always --tags --first-parent --dirty'.execute().text.trim()
+} catch (Exception e) {
+    println "Version detection failed: " + e
+}
+if (!vers.startsWith("v")) {
+    println "using version number: " + project.mod_version
+    version = project.mod_version
+} else {
+    version = vers.substring(1)
+    println "Detected version " + version
+}
+
+base {
+    archivesName = project.archives_base_name
+}
+
+java {
+    sourceCompatibility = JavaVersion.toVersion(project.java_version)
+    targetCompatibility = JavaVersion.toVersion(project.java_version)
+    // Toolchain removed: it forces a single-use daemon with Unix-domain-socket IPC that
+    // fails on some Windows configurations. JAVA_HOME=JDK 25 satisfies the requirement directly.
+}
+
+repositories {
+    maven {
+        name = 'impactdevelopment-repo'
+        url = 'https://impactdevelopment.github.io/maven/'
+    }
+    maven {
+        name = 'babbaj-repo'
+        url = 'https://babbaj.github.io/maven/'
+    }
+    mavenCentral()
+}
+
+// MC 26.1.2 is unobfuscated, no mappings needed
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.fabric_loader_version}"
+
+    implementation "dev.babbaj:nether-pathfinder:${project.nether_pathfinder_version}"
+    include "dev.babbaj:nether-pathfinder:${project.nether_pathfinder_version}"
+
+    implementation 'com.google.code.findbugs:jsr305:3.0.2'
+
+    testImplementation 'junit:junit:4.13.2'
+}
+
+sourceSets {
+    api {
+        compileClasspath += main.compileClasspath
+    }
+    main {
+        compileClasspath += api.output
+        runtimeClasspath += api.output
+    }
+    launch {
+        compileClasspath += main.compileClasspath + main.runtimeClasspath + main.output + api.output
+        runtimeClasspath += main.compileClasspath + main.runtimeClasspath + main.output + api.output
+    }
+    schematica_api {
+        compileClasspath += main.compileClasspath
+    }
+    main {
+        compileClasspath += schematica_api.output
+        runtimeClasspath += schematica_api.output
+    }
+}
+
+// Add all source sets to main runtime classpath for dev runs and Fabric Loader
+sourceSets.main {
+    runtimeClasspath += sourceSets.launch.output + sourceSets.api.output + sourceSets.schematica_api.output
+}
+
+processResources {
+    inputs.property "version", project.version
+
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
+
+jar {
+    from sourceSets.main.output, sourceSets.launch.output, sourceSets.api.output, sourceSets.schematica_api.output
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    manifest {
+        attributes(
+            'MixinConfigs': 'mixins.baritone.json'
+        )
+    }
+}
+
+// MC 26.1.2 is unobfuscated, no remapping needed
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = "UTF-8"
+    // Patch java.base for Minecraft 26.1.2 internals used at compile time
+    it.options.fork = true
+    it.options.forkOptions.jvmArgs += ['--patch-module=java.base=C:/T/patchout']
+}

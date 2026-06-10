@@ -1,0 +1,6 @@
+{
+  "outputDirectory": "website",
+  "rewrites": [
+    { "source": "/api/trial", "destination": "/api/trial.js" }
+  ]
+}

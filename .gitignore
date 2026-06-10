@@ -1,0 +1,63 @@
+.DS_Store
+**/*.swp
+
+run/
+autotest/
+dist/
+volderyarn/
+
+# Gradle
+build/
+.gradle/
+classes/
+*.class
+
+/out
+
+# IntelliJ Files
+.idea/
+*.iml
+*.ipr
+*.iws
+/logs/
+
+tweaker/logs/
+common/logs/
+
+# Eclipse Files
+.classpath
+.project
+.settings/
+baritone_Client.launch
+#claude files
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+
+# License system — private key must NEVER be committed
+# If you lose this file you cannot generate new licenses without a full keypair rotation.
+private_key.b64
+
+# License generator UI — local tool only, not for distribution
+tools/license_ui.ps1
+tools/license_log.json
+
+# Website — server script embeds private key path; trial log tracks IP addresses
+website/server.ps1
+website/server.js
+website/trial_log.json
+# Copyright Files
+!/.idea/copyright/Baritone.xml
+!/.idea/copyright/profiles_settings.xml
+
+.vscode/launch.json
+.architectury-transformer
+
+
+mapping
+
+libs/lwjgl-platform-2.9.4-nightly-20150209-natives-osx.jar
+libs/java-objc-bridge-1.1.jar
+
+mapping
+.vercel

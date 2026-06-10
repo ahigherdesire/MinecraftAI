@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MinecraftAI — Advanced Minecraft Automation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ── Canvas background ──────────────────────────────────────────────────── -->
+<canvas id="bg-canvas"></canvas>
+
+<!-- ── Navigation ─────────────────────────────────────────────────────────── -->
+<nav class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-logo">
+      <div class="logo-cube">M</div>
+      MinecraftAI
+    </a>
+
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#intelligence">Intelligence</a>
+      <a href="#howitworks">How It Works</a>
+      <a href="#trial" class="nav-cta">Free Trial</a>
+    </div>
+
+    <button class="nav-hamburger" id="navToggle" aria-label="Menu">
+      <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="3" y1="6"  x2="17" y2="6"/>
+        <line x1="3" y1="10" x2="17" y2="10"/>
+        <line x1="3" y1="14" x2="17" y2="14"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="nav-mobile" id="navMobile">
+    <a href="#features">Features</a>
+    <a href="#intelligence">Intelligence</a>
+    <a href="#howitworks">How It Works</a>
+    <a href="#trial">🎯 Free Trial</a>
+  </div>
+</nav>
+
+<!-- ── Hero ───────────────────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-inner">
+
+      <div class="hero-badge">
+        <span class="badge-pulse"></span>
+        MC 26.1.2 &nbsp;·&nbsp; Fabric 0.18.4 &nbsp;·&nbsp; RSA Licensed
+      </div>
+
+      <h1>
+        Automate Minecraft<br>
+        <span class="gradient-text">like never before.</span>
+      </h1>
+
+      <p class="hero-sub">
+        The most advanced Baritone fork — autonomous ore mining, smart pathfinding,
+        structure finding, chest memory, player tracking, base heatmaps, and real-time
+        threat alerts. All secured with RSA-signed license tokens.
+      </p>
+
+      <div class="hero-actions">
+        <a href="#trial" class="btn-primary">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+          Start Free Trial
+        </a>
+        <a href="#features" class="btn-secondary">
+          Explore Features
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path d="M19 9l-7 7-7-7"/>
+          </svg>
+        </a>
+      </div>
+
+      <!-- Animated terminal -->
+      <div class="terminal">
+        <div class="term-bar">
+          <div class="term-dots">
+            <div class="term-dot r"></div>
+            <div class="term-dot y"></div>
+            <div class="term-dot g"></div>
+          </div>
+          <span class="term-title">Minecraft Chat</span>
+        </div>
+        <div class="term-body" id="termBody"></div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── Features ───────────────────────────────────────────────────────────── -->
+<div class="glow-divider"></div>
+<section class="section" id="features">
+  <div class="container">
+
+    <div class="section-head reveal">
+      <p class="section-eyebrow">Capabilities</p>
+      <h2>Everything you need.<br><span class="gradient-text">Nothing you don't.</span></h2>
+      <p>Eight powerful systems, one lightweight Fabric mod. Drop in the JAR, activate your token, and start mining in under a minute.</p>
+    </div>
+
+    <div class="features-grid">
+
+      <div class="feat-card reveal delay-1">
+        <div class="feat-icon">⛏️</div>
+        <h3>Autonomous Mining</h3>
+        <p>The core feature. Queue any ore or block type and MinecraftAI mines continuously — finding veins, navigating caves, bridging gaps, and refilling its queue automatically.</p>
+        <div class="feat-tags">
+          <span class="tag">#mine</span><span class="tag">#mine diamond_ore</span><span class="tag">#mine ancient_debris</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal delay-2">
+        <div class="feat-icon">🎯</div>
+        <h3>Smart Pathfinding</h3>
+        <p>A* movement with sprint, jump, swim, bridge, parkour, and fall-damage avoidance. Long routes auto-splice into continuous seamless segments — no manual waypoints needed.</p>
+        <div class="feat-tags">
+          <span class="tag">#goto</span><span class="tag">#goto X Y Z</span><span class="tag">#farm</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal delay-3">
+        <div class="feat-icon">🗺️</div>
+        <h3>Structure Finder</h3>
+        <p>Locate any structure — stronghold, village, bastion, mansion, and more. Uses server data in singleplayer, seed-based math in multiplayer. Drops a JourneyMap waypoint instantly.</p>
+        <div class="feat-tags">
+          <span class="tag">#structure</span><span class="tag">#where</span><span class="tag">#locate</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal delay-4">
+        <div class="feat-icon">🧱</div>
+        <h3>Chest Memory</h3>
+        <p>Every container you open is silently recorded to disk. Search by item name at any time and navigate directly to the chest — across sessions and restarts.</p>
+        <div class="feat-tags">
+          <span class="tag">#chest</span><span class="tag">#chests</span><span class="tag">#findchest</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal delay-5">
+        <div class="feat-icon">👁️</div>
+        <h3>Player Detection</h3>
+        <p>Logs every player you see — coordinates, dimension, timestamp — with up to 20 sightings per player. Navigate back to their last known position with one command.</p>
+        <div class="feat-tags">
+          <span class="tag">#players</span><span class="tag">#players goto</span><span class="tag">#seen</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal delay-6">
+        <div class="feat-icon">🏠</div>
+        <h3>Base Finder &amp; Heatmap</h3>
+        <p>DBSCAN clustering on your chunk cache surfaces likely player bases. The heatmap draws live colour-coded polygons on JourneyMap — blue to red by exploration density.</p>
+        <div class="feat-tags">
+          <span class="tag">#bases</span><span class="tag">#heatmap</span><span class="tag">#basefinder</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal delay-1">
+        <div class="feat-icon">⚠️</div>
+        <h3>Threat Alerts</h3>
+        <p>Real-time chat warning the moment any player enters your configurable radius. 30-second per-player cooldown. Re-alerts when they leave and come back.</p>
+        <div class="feat-tags">
+          <span class="tag">#threats on</span><span class="tag">#threats 128</span><span class="tag">#threats status</span>
+        </div>
+      </div>
+
+      <div class="feat-card reveal delay-2">
+        <div class="feat-icon">🔐</div>
+        <h3>RSA License System</h3>
+        <p>Token-based access with RSA-2048 signatures. No UUID config. Works on cracked launchers. Tokens carry an expiry date — revocation is instant and automatic.</p>
+        <div class="feat-tags">
+          <span class="tag">#activate</span><span class="tag">#license</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── Stats bar ──────────────────────────────────────────────────────────── -->
+<div class="stats-bar">
+  <div class="stats-inner">
+    <div class="stat reveal">
+      <div class="stat-num" data-target="20">0</div>
+      <div class="stat-label">Commands</div>
+    </div>
+    <div class="stat reveal delay-1">
+      <div class="stat-num" data-target="8">0</div>
+      <div class="stat-label">Active Behaviors</div>
+    </div>
+    <div class="stat reveal delay-2">
+      <div class="stat-num" data-target="26" data-suffix=".1.2">0</div>
+      <div class="stat-label">Minecraft Version</div>
+    </div>
+    <div class="stat reveal delay-3">
+      <div class="stat-num" data-target="64">0</div>
+      <div class="stat-label">Ore types minable</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Intelligence section ───────────────────────────────────────────────── -->
+<div class="glow-divider"></div>
+<section class="section" id="intelligence">
+  <div class="container">
+    <div class="intel-grid">
+
+      <div class="intel-text reveal-l">
+        <p class="section-eyebrow">Player Intelligence</p>
+        <h2>Know who's around.<br><span class="gradient-text">Always.</span></h2>
+        <p>
+          MinecraftAI watches every visible player entity on every game tick — recording
+          their position, dimension, and name into a persistent JSON database. No commands
+          needed; it just happens.
+        </p>
+        <div class="intel-list">
+          <div class="intel-item">
+            <div class="intel-icon">👤</div>
+            <div>
+              <h4>Automatic Logging</h4>
+              <p>Every player you load into view is timestamped and recorded. Up to 20 sightings per player retained, newest first.</p>
+            </div>
+          </div>
+          <div class="intel-item">
+            <div class="intel-icon">📍</div>
+            <div>
+              <h4>Navigate to Last Position</h4>
+              <p><code>#players goto Steve</code> paths directly to their last known X/Z coordinates. Cross-dimension warning included.</p>
+            </div>
+          </div>
+          <div class="intel-item">
+            <div class="intel-icon">🚨</div>
+            <div>
+              <h4>Configurable Proximity Alerts</h4>
+              <p>Enable <code>#threats on</code> for an in-chat alert the moment anyone enters your configured radius (default 64 blocks).</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="intel-terminal-wrap reveal-r">
+        <div class="intel-terminal">
+          <div class="term-bar">
+            <div class="term-dots">
+              <div class="term-dot r"></div>
+              <div class="term-dot y"></div>
+              <div class="term-dot g"></div>
+            </div>
+            <span class="term-title">Minecraft Chat</span>
+          </div>
+          <div class="term-body" style="font-size:.8rem; min-height:220px">
+            <span class="term-line"><span class="term-prompt">›&nbsp;</span><span class="term-cmd">#threats on</span></span>
+            <span class="term-line"><span class="term-ok">[Threats] Detection ON — radius 64 blocks</span></span>
+            <span class="term-line" style="margin-top:8px"><span class="term-warn">[Threats] ⚠ PLAYER NEARBY: Steve</span></span>
+            <span class="term-line"><span class="term-out">&nbsp;&nbsp;X=1204 Y=64 Z=−441 (~38 blocks) [overworld]</span></span>
+            <span class="term-line" style="margin-top:8px"><span class="term-prompt">›&nbsp;</span><span class="term-cmd">#players</span></span>
+            <span class="term-line"><span class="term-ok">══ Known players (2 recorded) ══</span></span>
+            <span class="term-line"><span class="term-out">&nbsp;1. Steve  ~38 blocks  X=1204 Y=64 Z=−441  just now</span></span>
+            <span class="term-line"><span class="term-out">&nbsp;2. Alex   ~800 blocks  X=2048 Y=70 Z=900  2h ago</span></span>
+            <span class="term-line" style="margin-top:8px"><span class="term-prompt">›&nbsp;</span><span class="term-cmd">#players goto Steve</span></span>
+            <span class="term-line"><span class="term-ok">[MinecraftAI] Pathing to Steve's last position...</span></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── How it works ───────────────────────────────────────────────────────── -->
+<div class="glow-divider"></div>
+<section class="section" id="howitworks">
+  <div class="container">
+
+    <div class="section-head reveal">
+      <p class="section-eyebrow">Getting Started</p>
+      <h2>Up and running in <span class="gradient-text">60 seconds.</span></h2>
+      <p>Three steps from download to automation.</p>
+    </div>
+
+    <div class="steps">
+      <div class="step reveal delay-1">
+        <div class="step-num">1</div>
+        <h3>Drop in the JAR</h3>
+        <p>Copy <code>minecraftai-dirty.jar</code> into your Fabric <code>mods/</code> folder alongside Fabric Loader 0.18.4.</p>
+        <div class="step-code">mods/minecraftai-dirty.jar</div>
+      </div>
+      <div class="step reveal delay-2">
+        <div class="step-num">2</div>
+        <h3>Activate Your Token</h3>
+        <p>Paste your license token into Minecraft chat once. It's saved permanently — you'll never need to do it again.</p>
+        <div class="step-code">#activate &lt;your-token&gt;</div>
+      </div>
+      <div class="step reveal delay-3">
+        <div class="step-num">3</div>
+        <h3>Start Commanding</h3>
+        <p>Use any <code>#command</code> in chat. Type <code>#help</code> for the full list with tab completion on every argument.</p>
+        <div class="step-code">#mine diamond_ore</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── Free Trial ──────────────────────────────────────────────────────────── -->
+<div class="glow-divider"></div>
+<section class="trial-section" id="trial">
+  <div class="container">
+
+    <div class="section-head reveal" style="margin-bottom:40px">
+      <p class="section-eyebrow">Free Trial</p>
+      <h2>Try MinecraftAI <span class="gradient-text">for free.</span></h2>
+      <p>Get a 24-hour token instantly. No account. No credit card. Just your Minecraft username.</p>
+    </div>
+
+    <div class="trial-card reveal">
+      <h2>Generate Your Trial Token</h2>
+      <p class="sub">Enter your Minecraft username and receive a 1-day access token immediately.</p>
+
+      <div class="trial-form">
+        <input
+          class="trial-input"
+          id="trialUsername"
+          type="text"
+          placeholder="Your Minecraft username"
+          maxlength="16"
+          autocomplete="off"
+          spellcheck="false"
+        >
+        <button class="trial-btn" id="trialBtn" onclick="generateTrial()">
+          <span class="trial-btn-shimmer"></span>
+          <span class="btn-label">⚡  Generate 1-Day Token</span>
+        </button>
+      </div>
+
+      <!-- Success: token reveal -->
+      <div class="token-result" id="tokenResult">
+        <div class="token-result-head">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Token generated successfully!
+        </div>
+        <div class="token-box" id="tokenBox"></div>
+        <div class="token-actions">
+          <button class="token-btn" id="copyToken"     onclick="copyToken()">Copy Token</button>
+          <button class="token-btn" id="copyActivate"  onclick="copyActivate()">Copy #activate Command</button>
+        </div>
+        <div class="token-expiry" id="tokenExpiry"></div>
+      </div>
+
+      <!-- Error message -->
+      <div class="trial-error" id="trialError"></div>
+
+      <p class="trial-note">
+        One trial per username. Token expires after 24 hours.
+        To extend access, contact the server owner for a full license.
+        By generating a token you agree to use this mod only on servers you are permitted to automate on.
+      </p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
+<div class="glow-divider"></div>
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a href="#" class="nav-logo">
+          <div class="logo-cube">M</div>
+          MinecraftAI
+        </a>
+        <p>The most advanced Baritone fork for Minecraft 26.1.2. Smart automation, player intelligence, and RSA-secured licensing.</p>
+        <div style="margin-top:16px; display:flex; gap:8px; flex-wrap:wrap">
+          <span class="tag">MC 26.1.2</span>
+          <span class="tag">Fabric 0.18.4</span>
+          <span class="tag">Java 25</span>
+          <span class="tag">LGPL 3.0</span>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h4>Commands</h4>
+        <a href="#features">#mine</a>
+        <a href="#features">#goto / #farm</a>
+        <a href="#features">#structure / #where</a>
+        <a href="#features">#chest / #chests</a>
+        <a href="#intelligence">#players / #seen</a>
+        <a href="#intelligence">#threats</a>
+        <a href="#features">#bases / #heatmap</a>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <a href="#howitworks">Getting Started</a>
+        <a href="#trial">Free Trial</a>
+        <a href="#features">All Features</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 MinecraftAI. Forked from <a href="https://github.com/cabaletta/baritone" style="color:var(--dim)">Baritone</a> by cabaletta. LGPL 3.0.</p>
+      <div class="footer-tags">
+        <span class="tag">v1.0 · MC 26.1.2</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- Scroll-to-top -->
+<button class="scroll-top" id="scrollTop" aria-label="Scroll to top">
+  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+    <path d="M18 15l-6-6-6 6"/>
+  </svg>
+</button>
+
+<script src="app.js"></script>
+</body>
+</html>
