@@ -50,6 +50,10 @@ import java.util.stream.Stream;
  */
 public class HomeCommand extends Command {
 
+    /** Subcommand words — not allowed as home names, they'd be unreachable via #home <name>. */
+    private static final java.util.Set<String> RESERVED = java.util.Set.of(
+            "set", "save", "add", "list", "ls", "l", "del", "delete", "remove", "rm");
+
     public HomeCommand(IBaritone baritone) {
         super(baritone, "home", "homes", "sethome");
     }
@@ -109,7 +113,11 @@ public class HomeCommand extends Command {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private void doSet(String name) {
+    private void doSet(String name) throws CommandInvalidStateException {
+        if (RESERVED.contains(name.toLowerCase())) {
+            throw new CommandInvalidStateException(
+                    "\"" + name + "\" is a reserved word and can't be used as a home name.");
+        }
         BlockPos pos = ctx.playerFeet();
         String   dim = currentDim();
         HomeMemory.set(name, pos, dim);
@@ -129,6 +137,16 @@ public class HomeCommand extends Command {
                 throw new CommandInvalidStateException(
                         "No home named \"" + name + "\". Use #home list to see saved homes.");
             }
+        }
+        // The saved coordinates only make sense in the dimension they were saved
+        // in — pathing to overworld coords while in the nether goes somewhere
+        // wrong (and possibly dangerous).
+        String cur = currentDim();
+        if (rec.dim != null && !rec.dim.equals(cur)) {
+            throw new CommandInvalidStateException(
+                    "Home \"" + rec.name + "\" is in " + rec.dimShort()
+                            + " but you are in " + shortDim(cur)
+                            + ". Travel there first (try #portal).");
         }
         BlockPos pos = rec.pos;
         logDirect("Going to home \"" + rec.name + "\" — X=" + pos.getX()

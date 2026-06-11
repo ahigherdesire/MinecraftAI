@@ -44,31 +44,34 @@ function validUsername(name) {
 //   - one trial per username (forever)
 //   - one trial per IP per 7 days
 // If not set, skips rate-limiting (fine for low-traffic / trusted audiences).
+const TTL_7D  = 7 * 24 * 60 * 60; // 7 days in seconds
+const TTL_INF = 365 * 24 * 60 * 60 * 10; // ~10 years for "forever"
+
+function redisConfigured() {
+  return process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN;
+}
+
+async function redisCmd(...args) {
+  const res = await fetch(process.env.UPSTASH_REDIS_REST_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(args),
+  });
+  const json = await res.json();
+  return json.result;
+}
+
+// Check only — does NOT record. Recording happens after token generation
+// succeeds, so a 500 during signing doesn't permanently burn the username/IP.
 async function checkRateLimit(username, ip) {
-  const url   = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return null; // rate-limiting not configured — allow
-
-  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-  const TTL_7D  = 7 * 24 * 60 * 60; // 7 days in seconds
-  const TTL_INF = 365 * 24 * 60 * 60 * 10; // ~10 years for "forever"
-
-  async function redisCmd(...args) {
-    const res = await fetch(`${url}`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(args),
-    });
-    const json = await res.json();
-    return json.result;
-  }
-
-  const userKey = `trial:user:${username.toLowerCase()}`;
-  const ipKey   = `trial:ip:${ip}`;
+  if (!redisConfigured()) return null; // rate-limiting not configured — allow
 
   const [userExists, ipExists] = await Promise.all([
-    redisCmd('EXISTS', userKey),
-    redisCmd('EXISTS', ipKey),
+    redisCmd('EXISTS', `trial:user:${username.toLowerCase()}`),
+    redisCmd('EXISTS', `trial:ip:${ip}`),
   ]);
 
   if (userExists) {
@@ -77,14 +80,16 @@ async function checkRateLimit(username, ip) {
   if (ipExists) {
     return 'Your IP address has already generated a trial in the past 7 days.';
   }
-
-  // Record both keys (fire-and-forget — don't block the response)
-  Promise.all([
-    redisCmd('SET', userKey, '1', 'EX', TTL_INF),
-    redisCmd('SET', ipKey,   '1', 'EX', TTL_7D),
-  ]).catch(() => {}); // non-fatal
-
   return null; // allowed
+}
+
+// Record a successful trial issue (fire-and-forget — don't block the response).
+function recordRateLimit(username, ip) {
+  if (!redisConfigured()) return;
+  Promise.all([
+    redisCmd('SET', `trial:user:${username.toLowerCase()}`, '1', 'EX', TTL_INF),
+    redisCmd('SET', `trial:ip:${ip}`, '1', 'EX', TTL_7D),
+  ]).catch(() => {}); // non-fatal
 }
 
 // ── Handler ────────────────────────────────────────────────────────────────────
@@ -151,6 +156,9 @@ module.exports = async function handler(req, res) {
       error: 'Failed to generate token. Please try again.',
     });
   }
+
+  // Only burn the rate-limit keys once the token actually exists.
+  recordRateLimit(username, clientIp);
 
   const expiry = new Date();
   expiry.setUTCDate(expiry.getUTCDate() + 1);

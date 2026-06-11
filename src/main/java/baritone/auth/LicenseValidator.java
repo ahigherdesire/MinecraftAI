@@ -124,7 +124,10 @@ public final class LicenseValidator {
             String name      = fields[0];
             LocalDate expiry = LocalDate.parse(fields[1]);
 
-            if (LocalDate.now().isAfter(expiry)) {
+            // Tokens are signed with UTC dates (generate_license.ps1 and the
+            // website trial API both use UTC) — compare in UTC, otherwise users
+            // east of UTC lose hours off the end of their license.
+            if (LocalDate.now(java.time.ZoneOffset.UTC).isAfter(expiry)) {
                 return new Result(Status.EXPIRED, name, expiry);
             }
             return new Result(Status.VALID, name, expiry);
