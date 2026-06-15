@@ -24,11 +24,9 @@ import baritone.api.command.exception.CommandException;
 import baritone.api.command.exception.CommandInvalidStateException;
 import baritone.auth.Authorization;
 import baritone.auth.LicenseValidator;
-import net.minecraft.client.Minecraft;
 
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.awt.Toolkit;
+import java.awt.datatransfer.DataFlavor;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
@@ -36,9 +34,8 @@ import java.util.stream.Stream;
 /**
  * One-time license activation command.
  *
- * <p>Tokens are too long to paste into Minecraft chat (~380 chars, MC limit 256).
- * Primary flow: save token to {@code baritone/activate.txt}, then run {@code #activate}.
- * The inline {@code #activate <token>} form is kept for short tokens only.
+ * <p>Tokens are ~380 chars — too long for MC chat (256 limit).
+ * Primary flow: copy token to clipboard, type {@code #activate}, done.
  *
  * <p>This command is intentionally exempt from the authorization check in
  * {@code CommandManager} so that unlicensed players can activate.
@@ -54,14 +51,13 @@ public class ActivateCommand extends Command {
         String token;
 
         if (!args.hasAny()) {
-            // File-based activation: read baritone/activate.txt
-            token = readActivateFile();
-            if (token == null) {
-                logDirect("[MinecraftAI] No token in chat and no activate.txt found.");
-                logDirect("Save your token to: .minecraft/baritone/activate.txt");
-                logDirect("Then run #activate again (no arguments).");
+            // Clipboard activation: copy token, type #activate
+            token = readClipboard();
+            if (token == null || token.isEmpty()) {
+                logDirect("[MinecraftAI] Copy your token to clipboard, then type #activate");
                 return;
             }
+            logDirect("[MinecraftAI] Read token from clipboard...");
         } else {
             args.requireMax(1);
             token = args.getString();
@@ -77,8 +73,6 @@ public class ActivateCommand extends Command {
                 try {
                     LicenseValidator.save(token);
                     Authorization.reset();
-                    // Delete activate.txt after successful use so the token isn't left on disk
-                    deleteActivateFile();
                     logDirect("[MinecraftAI] Activated! Licensed to: " + result.name
                             + " (expires " + result.expiry + ")");
                 } catch (Exception e) {
@@ -92,23 +86,14 @@ public class ActivateCommand extends Command {
         }
     }
 
-    private static Path activateFilePath() {
-        return Minecraft.getInstance().gameDirectory.toPath()
-                .resolve("baritone/activate.txt");
-    }
-
-    private static String readActivateFile() {
+    private static String readClipboard() {
         try {
-            Path p = activateFilePath();
-            if (!Files.exists(p)) return null;
-            return Files.readString(p, StandardCharsets.UTF_8).trim();
+            return (String) Toolkit.getDefaultToolkit()
+                    .getSystemClipboard()
+                    .getData(DataFlavor.stringFlavor);
         } catch (Exception e) {
             return null;
         }
-    }
-
-    private static void deleteActivateFile() {
-        try { Files.deleteIfExists(activateFilePath()); } catch (Exception ignored) {}
     }
 
     @Override
@@ -126,19 +111,11 @@ public class ActivateCommand extends Command {
         return Arrays.asList(
                 "Activates MinecraftAI using a license token from the mod owner.",
                 "",
-                "Tokens are too long to paste into Minecraft chat.",
-                "Use the file method instead:",
+                "How to activate:",
+                "  1. Copy the token you were given (Ctrl+C)",
+                "  2. In-game type:  #activate",
                 "",
-                "  1. Open your .minecraft folder",
-                "  2. Go into the baritone/ folder (create it if missing)",
-                "  3. Create a file called activate.txt",
-                "  4. Paste the full token into that file and save",
-                "  5. In-game, type:  #activate",
-                "",
-                "The file is deleted automatically after successful activation.",
-                "",
-                "Alternatively (short tokens only):",
-                "> #activate <token>"
+                "That's it. The token is saved and you won't need to enter it again."
         );
     }
 }
