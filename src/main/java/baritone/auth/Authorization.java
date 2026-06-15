@@ -103,7 +103,7 @@ public final class Authorization {
             }
             case NO_LICENSE -> {
                 authorized     = false;
-                failureMessage = "[MinecraftAI] Type #activate <token> to activate.";
+                failureMessage = "[MinecraftAI] Save token to baritone/activate.txt then type #activate";
                 failureColor   = net.minecraft.ChatFormatting.YELLOW;
             }
             case EXPIRED, INVALID -> {
