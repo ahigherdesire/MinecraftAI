@@ -80,8 +80,7 @@ public final class DefaultCommands {
                 new HeatmapCommand(baritone),
                 new ChestCommand(baritone),
                 new ThreatsCommand(baritone),
-                new PlayersCommand(baritone),
-                new ActivateCommand(baritone)
+                new PlayersCommand(baritone)
         ));
         ExecutionControlCommands prc = new ExecutionControlCommands(baritone);
         commands.add(prc.pauseCommand);

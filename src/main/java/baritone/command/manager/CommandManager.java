@@ -27,7 +27,6 @@ import baritone.api.command.exception.ICommandException;
 import baritone.api.command.helpers.TabCompleteHelper;
 import baritone.api.command.manager.ICommandManager;
 import baritone.api.command.registry.Registry;
-import baritone.auth.Authorization;
 import baritone.util.JourneyMapHelper;
 import baritone.command.argument.ArgConsumer;
 import baritone.command.argument.CommandArguments;
@@ -82,21 +81,9 @@ public class CommandManager implements ICommandManager {
 
     @Override
     public boolean execute(Tuple<String, List<ICommandArgument>> expanded) {
-        // Authorization chokepoint: every command dispatch must pass this check.
-        // See baritone.auth.Authorization for the allowlist, offline-mode detection,
-        // and watermark logic. If unauthorized, the auth check itself prints the
-        // explanatory chat message, and we silently consume the command (return true)
-        // so the user doesn't get an additional "unknown command" line.
-        // #activate is always allowed so unactivated players can enter their token.
-        String cmdName = expanded.getA().toLowerCase(java.util.Locale.ROOT);
-        if (!cmdName.equals("activate") && !cmdName.equals("license")) {
-            if (!Authorization.isAuthorized()) {
-                return true;
-            }
-            // Lazy JourneyMap integration: subscribe our right-click "#goto" popup item
-            // the first time any authorized command runs (JM guaranteed loaded by then).
-            JourneyMapHelper.ensureSubscribed();
-        }
+        // Lazy JourneyMap integration: subscribe our right-click "#goto" popup item
+        // the first time any command runs (JM guaranteed loaded by then).
+        JourneyMapHelper.ensureSubscribed();
         ExecutionWrapper execution = this.from(expanded);
         if (execution != null) {
             execution.execute();
