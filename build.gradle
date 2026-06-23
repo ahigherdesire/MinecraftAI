@@ -74,6 +74,16 @@ sourceSets {
         compileClasspath += schematica_api.output
         runtimeClasspath += schematica_api.output
     }
+    // Compile-only stubs for the optional JourneyMap integration. The real
+    // JourneyMap mod provides these classes at runtime; our stubs let
+    // JourneyMapBridge compile without the JM jar. Deliberately NOT added to
+    // runtimeClasspath or the jar — bundling them would shadow the real mod.
+    journeymap_api {
+        compileClasspath += main.compileClasspath
+    }
+    main {
+        compileClasspath += journeymap_api.output
+    }
 }
 
 // Add all source sets to main runtime classpath for dev runs and Fabric Loader
