@@ -203,7 +203,7 @@ public class MixinMinecraft {
     // mod still loads — chest memory simply doesn't capture anything until the
     // mixin is updated.
 
-    @Inject(method = "setScreen", at = @At("HEAD"), require = 0)
+    @Inject(method = "setScreenAndShow", at = @At("HEAD"), require = 0)
     private void onSetScreen(Screen newScreen, CallbackInfo ci) {
         Minecraft mc  = Minecraft.getInstance();
         Screen    old = mc.screen;

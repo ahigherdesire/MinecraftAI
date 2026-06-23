@@ -44,13 +44,12 @@ public final class SleepHelper {
     /** In-game time tick when night ends. */
     public static final long NIGHT_END   = 23459L;
 
-    /** All 16 bed colours — all tracked in {@code CachedChunk.BLOCKS_TO_KEEP_TRACK_OF}. */
-    public static final List<Block> ALL_BEDS = Arrays.asList(
-            Blocks.WHITE_BED, Blocks.ORANGE_BED, Blocks.MAGENTA_BED, Blocks.LIGHT_BLUE_BED,
-            Blocks.YELLOW_BED, Blocks.LIME_BED, Blocks.PINK_BED, Blocks.GRAY_BED,
-            Blocks.LIGHT_GRAY_BED, Blocks.CYAN_BED, Blocks.PURPLE_BED, Blocks.BLUE_BED,
-            Blocks.BROWN_BED, Blocks.GREEN_BED, Blocks.RED_BED, Blocks.BLACK_BED
-    );
+    /**
+     * All 16 bed colours — all tracked in {@code CachedChunk.BLOCKS_TO_KEEP_TRACK_OF}.
+     * MC 26.2 consolidated the per-colour bed blocks into the {@code Blocks.BED}
+     * {@code ColorCollection}; {@code asList()} returns all 16.
+     */
+    public static final List<Block> ALL_BEDS = Blocks.BED.asList();
 
     private SleepHelper() {}
 

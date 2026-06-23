@@ -53,13 +53,12 @@ public class SleepCommand extends Command {
     /** In-game time tick when night ends. */
     private static final long NIGHT_END   = 23459L;
 
-    /** All 16 bed block variants — all are tracked in {@link baritone.cache.CachedChunk#BLOCKS_TO_KEEP_TRACK_OF}. */
-    private static final List<Block> ALL_BEDS = Arrays.asList(
-            Blocks.WHITE_BED, Blocks.ORANGE_BED, Blocks.MAGENTA_BED, Blocks.LIGHT_BLUE_BED,
-            Blocks.YELLOW_BED, Blocks.LIME_BED, Blocks.PINK_BED, Blocks.GRAY_BED,
-            Blocks.LIGHT_GRAY_BED, Blocks.CYAN_BED, Blocks.PURPLE_BED, Blocks.BLUE_BED,
-            Blocks.BROWN_BED, Blocks.GREEN_BED, Blocks.RED_BED, Blocks.BLACK_BED
-    );
+    /**
+     * All 16 bed block variants — all are tracked in {@link baritone.cache.CachedChunk#BLOCKS_TO_KEEP_TRACK_OF}.
+     * MC 26.2 consolidated the per-colour bed blocks into the {@code Blocks.BED}
+     * {@code ColorCollection}; {@code asList()} returns all 16.
+     */
+    private static final List<Block> ALL_BEDS = Blocks.BED.asList();
 
     /** The currently active sleep thread, if any. Interrupted when #sleep is re-run or when cancelled. */
     private Thread sleepThread;

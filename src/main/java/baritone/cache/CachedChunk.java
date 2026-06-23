@@ -40,7 +40,7 @@ import java.util.Map;
  */
 public final class CachedChunk {
 
-    public static final ImmutableSet<Block> BLOCKS_TO_KEEP_TRACK_OF = ImmutableSet.of(
+    public static final ImmutableSet<Block> BLOCKS_TO_KEEP_TRACK_OF = ImmutableSet.<Block>builder().add(
             Blocks.ENDER_CHEST,
             Blocks.FURNACE,
             Blocks.CHEST,
@@ -50,22 +50,7 @@ public final class CachedChunk {
             Blocks.SPAWNER,
             Blocks.BARRIER,
             Blocks.OBSERVER,
-            Blocks.WHITE_SHULKER_BOX,
-            Blocks.ORANGE_SHULKER_BOX,
-            Blocks.MAGENTA_SHULKER_BOX,
-            Blocks.LIGHT_BLUE_SHULKER_BOX,
-            Blocks.YELLOW_SHULKER_BOX,
-            Blocks.LIME_SHULKER_BOX,
-            Blocks.PINK_SHULKER_BOX,
-            Blocks.GRAY_SHULKER_BOX,
-            Blocks.LIGHT_GRAY_SHULKER_BOX,
-            Blocks.CYAN_SHULKER_BOX,
-            Blocks.PURPLE_SHULKER_BOX,
-            Blocks.BLUE_SHULKER_BOX,
-            Blocks.BROWN_SHULKER_BOX,
-            Blocks.GREEN_SHULKER_BOX,
-            Blocks.RED_SHULKER_BOX,
-            Blocks.BLACK_SHULKER_BOX,
+            // 16 colour shulker boxes added below via Blocks.DYED_SHULKER_BOX.asList()
             Blocks.NETHER_PORTAL,
             Blocks.HOPPER,
             Blocks.BEACON,
@@ -87,22 +72,7 @@ public final class CachedChunk {
             Blocks.WITHER_SKELETON_WALL_SKULL,
             Blocks.ENCHANTING_TABLE,
             Blocks.ANVIL,
-            Blocks.WHITE_BED,
-            Blocks.ORANGE_BED,
-            Blocks.MAGENTA_BED,
-            Blocks.LIGHT_BLUE_BED,
-            Blocks.YELLOW_BED,
-            Blocks.LIME_BED,
-            Blocks.PINK_BED,
-            Blocks.GRAY_BED,
-            Blocks.LIGHT_GRAY_BED,
-            Blocks.CYAN_BED,
-            Blocks.PURPLE_BED,
-            Blocks.BLUE_BED,
-            Blocks.BROWN_BED,
-            Blocks.GREEN_BED,
-            Blocks.RED_BED,
-            Blocks.BLACK_BED,
+            // 16 colour beds added below via Blocks.BED.asList()
             Blocks.DRAGON_EGG,
             Blocks.JUKEBOX,
             Blocks.END_GATEWAY,
@@ -135,7 +105,11 @@ public final class CachedChunk {
             Blocks.NETHER_QUARTZ_ORE,
             Blocks.NETHER_GOLD_ORE,
             Blocks.ANCIENT_DEBRIS
-    );
+    )
+            // MC 26.2 consolidated dyed blocks into ColorCollections.
+            .addAll(Blocks.DYED_SHULKER_BOX.asList())
+            .addAll(Blocks.BED.asList())
+            .build();
 
     public final int height;
 
