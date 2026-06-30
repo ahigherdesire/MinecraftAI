@@ -52,11 +52,14 @@ public final class HomeMemory {
         public final String   name;
         public final BlockPos pos;
         public final String   dim;
+        /** World/server scope key — see {@link WorldScope#currentWorldKey()}. */
+        public final String   world;
 
-        HomeRecord(String name, BlockPos pos, String dim) {
-            this.name = name;
-            this.pos  = pos;
-            this.dim  = dim;
+        HomeRecord(String name, BlockPos pos, String dim, String world) {
+            this.name  = name;
+            this.pos   = pos;
+            this.dim   = dim;
+            this.world = world == null ? "unknown" : world;
         }
 
         /** Short dimension label — "overworld", "nether", "end", or the full id. */
@@ -72,7 +75,7 @@ public final class HomeMemory {
 
     // ── In-memory store ────────────────────────────────────────────────────────
 
-    /** Key is always lower-case name. */
+    /** Key is {@code world|lowercase-name} so the same home name in different worlds doesn't collide. */
     private static final Map<String, HomeRecord> HOMES  = new LinkedHashMap<>();
     private static       boolean                 loaded = false;
 
@@ -83,58 +86,78 @@ public final class HomeMemory {
         }
     }
 
+    private static String homeKey(String world, String name) {
+        return world + "|" + name.toLowerCase();
+    }
+
     // ── Public API ─────────────────────────────────────────────────────────────
 
-    /** Save or overwrite a named home at {@code pos} in {@code dim}. */
+    /** Save or overwrite a named home at {@code pos} in {@code dim} (in the current world/server). */
     public static void set(String name, BlockPos pos, String dim) {
-        String key = name.toLowerCase();
+        String world = WorldScope.currentWorldKey();
+        String lname = name.toLowerCase();
         synchronized (HOMES) {
             ensureLoaded();
-            HOMES.put(key, new HomeRecord(key, pos, dim));
+            HOMES.put(homeKey(world, lname), new HomeRecord(lname, pos, dim, world));
         }
         scheduleSave();
     }
 
-    /** Return the record for {@code name}, or {@code null} if not found. */
+    /** Return the record for {@code name} in the current world/server, or {@code null}. */
     public static HomeRecord get(String name) {
         synchronized (HOMES) {
             ensureLoaded();
-            return HOMES.get(name.toLowerCase());
+            return HOMES.get(homeKey(WorldScope.currentWorldKey(), name));
         }
     }
 
-    /** Snapshot of all saved homes in insertion order. */
+    /** Snapshot of all saved homes in the current world/server. */
     public static List<HomeRecord> all() {
+        String world = WorldScope.currentWorldKey();
         synchronized (HOMES) {
             ensureLoaded();
-            return new ArrayList<>(HOMES.values());
+            List<HomeRecord> out = new ArrayList<>();
+            for (HomeRecord rec : HOMES.values()) {
+                if (world.equals(rec.world)) out.add(rec);
+            }
+            return out;
         }
     }
 
-    /** List of all home names in insertion order. */
+    /** List of all home names in the current world/server. */
     public static List<String> names() {
+        String world = WorldScope.currentWorldKey();
         synchronized (HOMES) {
             ensureLoaded();
-            return new ArrayList<>(HOMES.keySet());
+            List<String> out = new ArrayList<>();
+            for (HomeRecord rec : HOMES.values()) {
+                if (world.equals(rec.world)) out.add(rec.name);
+            }
+            return out;
         }
     }
 
-    /** Delete a named home. Returns {@code true} if it existed. */
+    /** Delete a named home in the current world/server. Returns {@code true} if it existed. */
     public static boolean delete(String name) {
         boolean removed;
         synchronized (HOMES) {
             ensureLoaded();
-            removed = HOMES.remove(name.toLowerCase()) != null;
+            removed = HOMES.remove(homeKey(WorldScope.currentWorldKey(), name)) != null;
         }
         if (removed) scheduleSave();
         return removed;
     }
 
-    /** How many homes are saved. */
+    /** How many homes are saved in the current world/server. */
     public static int size() {
+        String world = WorldScope.currentWorldKey();
         synchronized (HOMES) {
             ensureLoaded();
-            return HOMES.size();
+            int n = 0;
+            for (HomeRecord rec : HOMES.values()) {
+                if (world.equals(rec.world)) n++;
+            }
+            return n;
         }
     }
 
@@ -171,7 +194,9 @@ public final class HomeMemory {
                     int        y    = o.get("y").getAsInt();
                     int        z    = o.get("z").getAsInt();
                     String     dim  = o.has("dim") ? o.get("dim").getAsString() : "minecraft:overworld";
-                    HOMES.put(name, new HomeRecord(name, new BlockPos(x, y, z), dim));
+                    // Legacy homes (pre world-scoping) have no "world" — tag "unknown".
+                    String     world = o.has("world") ? o.get("world").getAsString() : "unknown";
+                    HOMES.put(homeKey(world, name), new HomeRecord(name, new BlockPos(x, y, z), dim, world));
                 } catch (Exception ignored) {} // skip malformed entry
             }
         } catch (Exception ignored) {} // corrupt file — start fresh
@@ -192,7 +217,8 @@ public final class HomeMemory {
 
         for (HomeRecord h : snapshot) {
             JsonObject o = new JsonObject();
-            o.addProperty("name", h.name);
+            o.addProperty("name",  h.name);
+            o.addProperty("world", h.world);
             o.addProperty("x",    h.pos.getX());
             o.addProperty("y",    h.pos.getY());
             o.addProperty("z",    h.pos.getZ());
