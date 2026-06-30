@@ -73,12 +73,13 @@ public final class PlayerMemory {
      * @param dim  dimension id string (e.g. {@code "minecraft:overworld"})
      */
     public static void updatePlayer(UUID uuid, String name, BlockPos pos, String dim) {
-        String key = uuid.toString();
+        String world = WorldScope.currentWorldKey();
+        String key = playerKey(world, uuid.toString());
         synchronized (RECORDS) {
             ensureLoaded();
             PlayerRecord rec = RECORDS.get(key);
             if (rec == null) {
-                rec = new PlayerRecord(key, name, new ArrayList<>());
+                rec = new PlayerRecord(uuid.toString(), name, world, new ArrayList<>());
                 RECORDS.put(key, rec);
             }
             rec.name = name; // update name (could change on some servers)
@@ -95,11 +96,19 @@ public final class PlayerMemory {
 
     // ── Public read API ───────────────────────────────────────────────────────
 
-    /** All recorded players, most recently updated first. */
+    private static String playerKey(String world, String uuid) {
+        return world + "|" + uuid;
+    }
+
+    /** All recorded players in the current world/server, most recently updated first. */
     public static List<PlayerRecord> allPlayers() {
+        String world = WorldScope.currentWorldKey();
         synchronized (RECORDS) {
             ensureLoaded();
-            List<PlayerRecord> list = new ArrayList<>(RECORDS.values());
+            List<PlayerRecord> list = new ArrayList<>();
+            for (PlayerRecord rec : RECORDS.values()) {
+                if (world.equals(rec.world)) list.add(rec);
+            }
             list.sort((a, b) -> {
                 long ta = a.history.isEmpty() ? 0 : a.history.get(0).timestamp;
                 long tb = b.history.isEmpty() ? 0 : b.history.get(0).timestamp;
@@ -109,39 +118,50 @@ public final class PlayerMemory {
         }
     }
 
-    /** Find a player by name (case-insensitive partial match). Returns first match. */
+    /** Find a player by name (case-insensitive partial match) in the current world/server. */
     public static PlayerRecord findByName(String query) {
         String q = query.toLowerCase();
+        String world = WorldScope.currentWorldKey();
         synchronized (RECORDS) {
             ensureLoaded();
             for (PlayerRecord rec : RECORDS.values()) {
-                if (rec.name.toLowerCase().contains(q)) return rec;
+                if (world.equals(rec.world) && rec.name.toLowerCase().contains(q)) return rec;
             }
         }
         return null;
     }
 
-    /** Find a player by exact UUID string. */
+    /** Find a player by exact UUID string in the current world/server. */
     public static PlayerRecord findByUUID(String uuid) {
         synchronized (RECORDS) {
             ensureLoaded();
-            return RECORDS.get(uuid);
+            return RECORDS.get(playerKey(WorldScope.currentWorldKey(), uuid));
         }
     }
 
-    /** Total players recorded. */
+    /** Total players recorded in the current world/server. */
     public static int size() {
-        synchronized (RECORDS) { ensureLoaded(); return RECORDS.size(); }
+        String world = WorldScope.currentWorldKey();
+        synchronized (RECORDS) {
+            ensureLoaded();
+            int n = 0;
+            for (PlayerRecord rec : RECORDS.values()) {
+                if (world.equals(rec.world)) n++;
+            }
+            return n;
+        }
     }
 
-    /** Remove a player record by name (case-insensitive). Returns true if removed. */
+    /** Remove a player record by name (case-insensitive) in the current world/server. */
     public static boolean forget(String name) {
         String q = name.toLowerCase();
+        String world = WorldScope.currentWorldKey();
         String found = null;
         synchronized (RECORDS) {
             ensureLoaded();
-            for (String k : RECORDS.keySet()) {
-                if (RECORDS.get(k).name.toLowerCase().contains(q)) { found = k; break; }
+            for (Map.Entry<String, PlayerRecord> e : RECORDS.entrySet()) {
+                PlayerRecord rec = e.getValue();
+                if (world.equals(rec.world) && rec.name.toLowerCase().contains(q)) { found = e.getKey(); break; }
             }
             if (found != null) RECORDS.remove(found);
         }
@@ -149,9 +169,13 @@ public final class PlayerMemory {
         return false;
     }
 
-    /** Wipe the entire database. */
+    /** Wipe the current world/server's player records. */
     public static void clear() {
-        synchronized (RECORDS) { ensureLoaded(); RECORDS.clear(); }
+        String world = WorldScope.currentWorldKey();
+        synchronized (RECORDS) {
+            ensureLoaded();
+            RECORDS.values().removeIf(rec -> world.equals(rec.world));
+        }
         scheduleThrottledSave();
     }
 
@@ -183,12 +207,15 @@ public final class PlayerMemory {
     public static final class PlayerRecord {
         public final  String        uuid;
         public        String        name;
+        /** World/server scope key — see {@link WorldScope#currentWorldKey()}. */
+        public final  String        world;
         /** Sightings newest-first; max {@link #MAX_HISTORY} entries. */
         public final  List<Sighting> history;
 
-        PlayerRecord(String uuid, String name, List<Sighting> history) {
+        PlayerRecord(String uuid, String name, String world, List<Sighting> history) {
             this.uuid    = uuid;
             this.name    = name;
+            this.world   = world == null ? "unknown" : world;
             this.history = history;
         }
 
@@ -235,7 +262,7 @@ public final class PlayerMemory {
             for (JsonElement el : arr) {
                 try {
                     PlayerRecord rec = parseRecord(el.getAsJsonObject());
-                    if (rec != null) RECORDS.put(rec.uuid, rec);
+                    if (rec != null) RECORDS.put(playerKey(rec.world, rec.uuid), rec);
                 } catch (Exception ignored) {}
             }
         } catch (Exception ignored) {}
@@ -244,6 +271,8 @@ public final class PlayerMemory {
     private static PlayerRecord parseRecord(JsonObject o) {
         String uuid = o.get("uuid").getAsString();
         String name = o.get("name").getAsString();
+        // Legacy records (pre world-scoping) have no "world" — tag "unknown".
+        String world = o.has("world") ? o.get("world").getAsString() : "unknown";
         JsonArray ha = o.getAsJsonArray("history");
         List<Sighting> history = new ArrayList<>();
         if (ha != null) {
@@ -255,7 +284,7 @@ public final class PlayerMemory {
                         s.has("ts")  ? s.get("ts").getAsLong()    : 0L));
             }
         }
-        return new PlayerRecord(uuid, name, history);
+        return new PlayerRecord(uuid, name, world, history);
     }
 
     private static synchronized void saveToDisk() {
@@ -272,8 +301,9 @@ public final class PlayerMemory {
 
         for (PlayerRecord rec : snapshot) {
             JsonObject o = new JsonObject();
-            o.addProperty("uuid", rec.uuid);
-            o.addProperty("name", rec.name);
+            o.addProperty("uuid",  rec.uuid);
+            o.addProperty("name",  rec.name);
+            o.addProperty("world", rec.world);
             JsonArray ha = new JsonArray();
             for (Sighting s : rec.history) {
                 JsonObject so = new JsonObject();

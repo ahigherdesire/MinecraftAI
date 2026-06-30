@@ -24,13 +24,11 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.storage.LevelResource;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -66,19 +64,7 @@ public final class ChestMemory {
 
     /** Stable identifier for the world/server the player is currently in. */
     public static String currentWorldKey() {
-        try {
-            Minecraft mc = Minecraft.getInstance();
-            if (mc.hasSingleplayerServer() && mc.getSingleplayerServer() != null) {
-                Path root = mc.getSingleplayerServer().getWorldPath(LevelResource.ROOT);
-                Path name = root.getFileName();
-                return "sp:" + (name == null ? root.toString() : name.toString());
-            }
-            ServerData sd = mc.getCurrentServer();
-            if (sd != null) {
-                return "mp:" + (sd.isRealm() ? "realms" : sd.ip);
-            }
-        } catch (Exception ignored) {}
-        return "unknown";
+        return WorldScope.currentWorldKey();
     }
 
     /** Map key including the world scope so identical positions in different worlds don't collide. */
