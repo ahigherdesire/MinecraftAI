@@ -1,6 +1,15 @@
-# MinecraftAI (Baritone fork — MC 26.1.2)
+# MinecraftAI (Baritone fork — MC 26.1 & 26.2)
 
-A Minecraft pathfinding bot forked from [Baritone](https://github.com/cabaletta/baritone), updated for **Minecraft 26.1.2** (Java 25, Fabric 0.18.4) with several new features.
+A Minecraft pathfinding bot forked from [Baritone](https://github.com/cabaletta/baritone), updated for **Minecraft 26.1 and 26.2** (Java 25, Fabric) with several new features.
+
+## Versions
+
+| Minecraft Version | MinecraftAI version | Dependencies |
+|---|---|---|
+| 26.2 | [1.17.0](https://github.com/ahigherdesire/MinecraftAI/releases/tag/v1.17.0-mc26.2) | [Fabric Loader 0.16.0+](https://fabricmc.net/use/installer/) |
+| 26.1 – 26.1.2 | [1.17.0](https://github.com/ahigherdesire/MinecraftAI/releases/tag/v1.17.0-mc26.1) | [Fabric Loader 0.16.0+](https://fabricmc.net/use/installer/) |
+
+> Download the JAR matching your Minecraft version from the linked release and drop it into your `mods/` folder.
 
 > ## What's new in this fork
 >
