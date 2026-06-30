@@ -24,11 +24,13 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.storage.LevelResource;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -54,6 +56,35 @@ import java.util.Optional;
 public final class ChestMemory {
 
     private ChestMemory() {}
+
+    // ── World scoping ─────────────────────────────────────────────────────────
+    // Records are tagged with a key identifying the current server / singleplayer
+    // world, and every query is filtered to that key. Without this, chests from
+    // every server and save file land in one global database and show up in worlds
+    // they don't belong to. Mirrors how WorldProvider picks per-world cache dirs:
+    // singleplayer -> save-folder name, multiplayer -> server address.
+
+    /** Stable identifier for the world/server the player is currently in. */
+    public static String currentWorldKey() {
+        try {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.hasSingleplayerServer() && mc.getSingleplayerServer() != null) {
+                Path root = mc.getSingleplayerServer().getWorldPath(LevelResource.ROOT);
+                Path name = root.getFileName();
+                return "sp:" + (name == null ? root.toString() : name.toString());
+            }
+            ServerData sd = mc.getCurrentServer();
+            if (sd != null) {
+                return "mp:" + (sd.isRealm() ? "realms" : sd.ip);
+            }
+        } catch (Exception ignored) {}
+        return "unknown";
+    }
+
+    /** Map key including the world scope so identical positions in different worlds don't collide. */
+    private static String recordKey(String world, String dimension, BlockPos pos) {
+        return world + "|" + dimension + ":" + pos.getX() + "," + pos.getY() + "," + pos.getZ();
+    }
 
     // ── Pending interaction tracking ──────────────────────────────────────────
     // Set when a container screen opens (hitResult at that moment = the block).
@@ -125,10 +156,11 @@ public final class ChestMemory {
 
         if (items.isEmpty()) return; // container was empty — not worth keeping
 
-        String key = dimension + ":" + pos.getX() + "," + pos.getY() + "," + pos.getZ();
+        String world = currentWorldKey();
+        String key = recordKey(world, dimension, pos);
         synchronized (RECORDS) {
             ensureLoaded();
-            RECORDS.put(key, new ChestRecord(pos, dimension, items,
+            RECORDS.put(key, new ChestRecord(pos, dimension, world, items,
                     System.currentTimeMillis()));
         }
         scheduleSave();
@@ -150,19 +182,29 @@ public final class ChestMemory {
 
     // ── Public query API ──────────────────────────────────────────────────────
 
-    /** How many distinct containers are recorded across all dimensions. */
+    /** How many distinct containers are recorded in the current world/server. */
     public static int size() {
+        String world = currentWorldKey();
         synchronized (RECORDS) {
             ensureLoaded();
-            return RECORDS.size();
+            int n = 0;
+            for (ChestRecord rec : RECORDS.values()) {
+                if (world.equals(rec.world)) n++;
+            }
+            return n;
         }
     }
 
-    /** Snapshot of all recorded chests. */
+    /** Snapshot of all recorded chests in the current world/server. */
     public static List<ChestRecord> allRecords() {
+        String world = currentWorldKey();
         synchronized (RECORDS) {
             ensureLoaded();
-            return new ArrayList<>(RECORDS.values());
+            List<ChestRecord> out = new ArrayList<>();
+            for (ChestRecord rec : RECORDS.values()) {
+                if (world.equals(rec.world)) out.add(rec);
+            }
+            return out;
         }
     }
 
@@ -173,10 +215,12 @@ public final class ChestMemory {
      */
     public static List<SearchResult> search(String query) {
         String q = query.toLowerCase();
+        String world = currentWorldKey();
         List<SearchResult> results = new ArrayList<>();
         synchronized (RECORDS) {
             ensureLoaded();
             for (ChestRecord rec : RECORDS.values()) {
+                if (!world.equals(rec.world)) continue; // only the current world/server
                 List<SlotItem> matched = new ArrayList<>();
                 for (SlotItem item : rec.items) {
                     if (item.id.toLowerCase().contains(q)
@@ -198,18 +242,19 @@ public final class ChestMemory {
         return results;
     }
 
-    /** Remove all records (in memory + on disk). */
+    /** Remove all records for the current world/server (in memory + on disk). */
     public static void clear() {
+        String world = currentWorldKey();
         synchronized (RECORDS) {
             ensureLoaded();
-            RECORDS.clear();
+            RECORDS.values().removeIf(rec -> world.equals(rec.world));
         }
         scheduleSave();
     }
 
-    /** Remove the record for a specific position + dimension. */
+    /** Remove the record for a specific position + dimension in the current world/server. */
     public static boolean forgetAt(BlockPos pos, String dim) {
-        String key = dim + ":" + pos.getX() + "," + pos.getY() + "," + pos.getZ();
+        String key = recordKey(currentWorldKey(), dim, pos);
         boolean removed;
         synchronized (RECORDS) {
             removed = RECORDS.remove(key) != null;
@@ -233,12 +278,15 @@ public final class ChestMemory {
     public static final class ChestRecord {
         public final BlockPos      pos;
         public final String        dimension;
+        /** World/server scope key — see {@link #currentWorldKey()}. */
+        public final String        world;
         public final List<SlotItem> items;
         public final long          timestamp;
 
-        ChestRecord(BlockPos pos, String dimension, List<SlotItem> items, long timestamp) {
+        ChestRecord(BlockPos pos, String dimension, String world, List<SlotItem> items, long timestamp) {
             this.pos       = pos;
             this.dimension = dimension;
+            this.world     = world == null ? "unknown" : world;
             this.items     = Collections.unmodifiableList(new ArrayList<>(items));
             this.timestamp = timestamp;
         }
@@ -314,9 +362,7 @@ public final class ChestMemory {
                 try {
                     ChestRecord rec = parseRecord(el.getAsJsonObject());
                     if (rec != null) {
-                        String key = rec.dimension + ":"
-                                + rec.pos.getX() + "," + rec.pos.getY() + "," + rec.pos.getZ();
-                        RECORDS.put(key, rec);
+                        RECORDS.put(recordKey(rec.world, rec.dimension, rec.pos), rec);
                     }
                 } catch (Exception ignored) {} // skip malformed entry
             }
@@ -325,6 +371,9 @@ public final class ChestMemory {
 
     private static ChestRecord parseRecord(JsonObject o) {
         String dim = o.get("dim").getAsString();
+        // Legacy records (written before world-scoping) have no "world" field —
+        // tag them "unknown" so they don't leak into every world's results.
+        String world = o.has("world") ? o.get("world").getAsString() : "unknown";
         int    x   = o.get("x").getAsInt();
         int    y   = o.get("y").getAsInt();
         int    z   = o.get("z").getAsInt();
@@ -340,7 +389,7 @@ public final class ChestMemory {
             items.add(new SlotItem(id, cnt, nm));
         }
         if (items.isEmpty()) return null;
-        return new ChestRecord(new BlockPos(x, y, z), dim, items, ts);
+        return new ChestRecord(new BlockPos(x, y, z), dim, world, items, ts);
     }
 
     private static synchronized void saveToDisk() {
@@ -360,7 +409,8 @@ public final class ChestMemory {
 
         for (ChestRecord rec : snapshot) {
             JsonObject o = new JsonObject();
-            o.addProperty("dim", rec.dimension);
+            o.addProperty("dim",   rec.dimension);
+            o.addProperty("world", rec.world);
             o.addProperty("x",   rec.pos.getX());
             o.addProperty("y",   rec.pos.getY());
             o.addProperty("z",   rec.pos.getZ());
