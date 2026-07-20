@@ -6,8 +6,10 @@ A Minecraft pathfinding bot forked from [Baritone](https://github.com/cabaletta/
 
 | Minecraft Version | MinecraftAI version | Dependencies |
 |---|---|---|
-| 26.2 | [1.17.0](https://github.com/ahigherdesire/MinecraftAI/releases/tag/v1.17.0-mc26.2) | [Fabric Loader 0.16.0+](https://fabricmc.net/use/installer/) |
+| 26.2 | [1.17.1](https://github.com/ahigherdesire/MinecraftAI/releases/tag/v1.17.1-mc26.2) | [Fabric Loader 0.16.0+](https://fabricmc.net/use/installer/) |
 | 26.1 – 26.1.2 | [1.17.0](https://github.com/ahigherdesire/MinecraftAI/releases/tag/v1.17.0-mc26.1) | [Fabric Loader 0.16.0+](https://fabricmc.net/use/installer/) |
+
+> **26.2 note:** fully functional (all commands, pathfinding, mining), but the visual path-line overlay is temporarily disabled while it's ported to 26.2's rewritten render pipeline. For visuals, use the 26.1 build.
 
 > Download the JAR matching your Minecraft version from the linked release and drop it into your `mods/` folder.
 
