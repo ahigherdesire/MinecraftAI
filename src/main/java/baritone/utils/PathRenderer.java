@@ -70,12 +70,16 @@ public final class PathRenderer implements IRenderer {
     }
 
     public static void render(RenderEvent event, PathingBehavior behavior) {
+        // MC 26.2: the debug line/box overlay is temporarily disabled — its draw
+        // path (IRenderer) needs reimplementing against 26.2's new GPU pipeline.
+        // Early-return so no rendering runs; the bot is otherwise fully functional.
+        if (true) {
+            return;
+        }
+
         final IPlayerContext ctx = behavior.ctx;
         if (ctx.world() == null) {
             return;
-        }
-        if (ctx.minecraft().screen instanceof GuiClick) {
-            ((GuiClick) ctx.minecraft().screen).onRender(event.getModelViewStack(), event.getProjectionMatrix());
         }
 
         final float partialTicks = event.getPartialTicks();

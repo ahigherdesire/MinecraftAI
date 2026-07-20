@@ -36,17 +36,10 @@ public class RenderCommand extends Command {
     @Override
     public void execute(String label, IArgConsumer args) throws CommandException {
         args.requireMax(0);
-        BetterBlockPos origin = ctx.playerFeet();
-        int renderDistance = (ctx.minecraft().options.renderDistance().get() + 1) * 16;
-        ctx.minecraft().levelRenderer.setBlocksDirty(
-                origin.x - renderDistance,
-                ctx.world().getMinY(),
-                origin.z - renderDistance,
-                origin.x + renderDistance,
-                ctx.world().getMaxY(),
-                origin.z + renderDistance
-        );
-        logDirect("Done");
+        // MC 26.2 removed LevelRenderer.setBlocksDirty; this command only forced a
+        // chunk re-render to refresh the (currently disabled) overlay, so it is a
+        // no-op here. Kept registered so scripts referencing #render don't error.
+        logDirect("Done (no-op on MC 26.2)");
     }
 
     @Override

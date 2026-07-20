@@ -165,31 +165,13 @@ public class MixinMinecraft {
         );
     }
 
-    @Redirect(
-            method = "tick",
-            at = @At(
-                    value = "FIELD",
-                    opcode = Opcodes.GETFIELD,
-                    target = "Lnet/minecraft/client/Minecraft;screen:Lnet/minecraft/client/gui/screens/Screen;"
-            ),
-            slice = @Slice(
-                    from = @At(
-                            value = "INVOKE",
-                            target = "Lnet/minecraft/client/gui/components/DebugScreenOverlay;showDebugScreen()Z"
-                    ),
-                    to = @At(
-                            value = "CONSTANT",
-                            args = "stringValue=Keybindings"
-                    )
-            )
-    )
-    private Screen passEvents(Minecraft instance) {
-        // allow user input is only the primary baritone
-        if (BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().isPathing() && player != null) {
-            return null;
-        }
-        return instance.screen;
-    }
+    // The old "pass events while pathing" redirect targeted the Minecraft.screen
+    // field, which MC 26.2 removed — so the redirect can no longer apply and is
+    // dropped. (Minor input nicety; pathing is unaffected.)
+
+    /** MC 26.2 removed Minecraft.screen, so we track the previous screen ourselves. */
+    @org.spongepowered.asm.mixin.Unique
+    private static Screen baritone$lastScreen = null;
 
     // ── Chest content memory ─────────────────────────────────────────────────
     //
@@ -206,7 +188,8 @@ public class MixinMinecraft {
     @Inject(method = "setScreenAndShow", at = @At("HEAD"), require = 0)
     private void onSetScreen(Screen newScreen, CallbackInfo ci) {
         Minecraft mc  = Minecraft.getInstance();
-        Screen    old = mc.screen;
+        Screen    old = baritone$lastScreen;   // MC 26.2: track prev screen ourselves
+        baritone$lastScreen = newScreen;
 
         boolean oldIsContainer = old instanceof AbstractContainerScreen<?>;
         boolean newIsContainer = newScreen instanceof AbstractContainerScreen<?>;
