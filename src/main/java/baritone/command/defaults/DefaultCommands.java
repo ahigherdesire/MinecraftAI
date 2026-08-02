@@ -60,6 +60,7 @@ public final class DefaultCommands {
                 new ExploreCommand(baritone),
                 new BlacklistCommand(baritone),
                 new FindCommand(baritone),
+                new SearchCommand(baritone),
                 new MineCommand(baritone),
                 new ClickCommand(baritone),
                 new SurfaceCommand(baritone),
