@@ -1301,9 +1301,10 @@ public final class Settings {
     @JavaOnly
     public final Setting<Consumer<Component>> logger = new Setting<>((msg) -> {
         try {
-            final GuiMessageTag tag = useMessageTag.value ? Helper.MESSAGE_TAG : null;
-            // MC 26.2 moved the chat component from Gui to the new Hud class (gui.hud.getChat()).
-            Minecraft.getInstance().gui.hud.getChat().addPlayerMessage(msg, null, tag);
+            // MC 26.2: chat moved to Hud (gui.hud.getChat()), and client-side output
+            // must use addClientSystemMessage — addPlayerMessage(msg, null, tag) can
+            // NPE on the null MessageSignature, which silently swallowed all output.
+            Minecraft.getInstance().gui.hud.getChat().addClientSystemMessage(msg);
         } catch (Throwable t) {
             LOGGER.warn("Failed to log message to chat: " + msg.getString(), t);
         }

@@ -65,22 +65,15 @@ public class MixinMinecraft {
         BaritoneAPI.getProvider().getPrimaryBaritone();
     }
 
+    // NOTE: the original anchored this to a GETFIELD of Minecraft.screen inside
+    // tick(). MC 26.2 removed the Minecraft.screen field, so that anchor no longer
+    // exists and the injection silently failed to apply (require defaults to 0) —
+    // which meant onTick() never fired and Baritone's entire per-tick loop (pathing,
+    // command/process execution) never ran: the bot accepted commands but did
+    // nothing. Anchoring at HEAD of tick() fires the pre-tick event reliably.
     @Inject(
             method = "tick",
-            at = @At(
-                    value = "FIELD",
-                    opcode = Opcodes.GETFIELD,
-                    target = "net/minecraft/client/Minecraft.screen:Lnet/minecraft/client/gui/screens/Screen;",
-                    ordinal = 0,
-                    shift = At.Shift.BEFORE
-            ),
-            slice = @Slice(
-                    from = @At(
-                            value = "FIELD",
-                            opcode = Opcodes.PUTFIELD,
-                            target = "net/minecraft/client/Minecraft.missTime:I"
-                    )
-            )
+            at = @At("HEAD")
     )
     private void runTick(CallbackInfo ci) {
         this.tickProvider = TickEvent.createNextProvider();
