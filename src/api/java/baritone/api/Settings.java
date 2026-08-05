@@ -653,6 +653,20 @@ public final class Settings {
     /** When false, auto-sleep skips activation if another process is controlling pathing. */
     public final Setting<Boolean> autoSleepInterruptTasks = new Setting<>(false);
 
+    /**
+     * Low-health failsafe while mining: if {@code #mine} is running and health drops
+     * to/below {@link #mineFleeHealth}, Baritone stops everything (like {@code #stop})
+     * and runs {@link #mineFleeCommand} (default {@code /home}). On by default.
+     */
+    public final Setting<Boolean> mineFleeOnLowHealth = new Setting<>(true);
+    /** Health threshold (out of 20 = 10 hearts) that triggers the mining failsafe. Default 10.0 = half. */
+    public final Setting<Double> mineFleeHealth = new Setting<>(10.0);
+    /**
+     * Command run when the mining failsafe triggers. {@code /prefix} = server command
+     * (e.g. {@code /home} teleport), {@code #prefix} = a Baritone command. Default {@code /home}.
+     */
+    public final Setting<String> mineFleeCommand = new Setting<>("/home");
+
     // ════════════════════════════════════════════════════════════════════════
     //  Base finder (#bases) — DBSCAN clustering over cached indicator blocks
     // ════════════════════════════════════════════════════════════════════════

@@ -23,6 +23,7 @@ import baritone.api.event.listener.AbstractGameEventListener;
 import baritone.api.pathing.goals.GoalNear;
 import baritone.api.utils.Helper;
 import baritone.util.SleepHelper;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 
 import java.util.Optional;
@@ -44,6 +45,9 @@ public final class AutopilotBehavior extends Behavior implements AbstractGameEve
     /** Set once the auto-sleep watcher has issued a goal for the current night. */
     private boolean sleepInProgress = false;
 
+    /** Latched while health is low so the mining failsafe fires once per low-health episode. */
+    private boolean mineFleeTriggered = false;
+
     /** Tracks {@code autoSleep}'s previous tick value to fire a one-time experimental warning. */
     private boolean prevAutoSleep = false;
 
@@ -57,12 +61,72 @@ public final class AutopilotBehavior extends Behavior implements AbstractGameEve
             // World unloading — reset state so re-entering re-fires the warning.
             this.sleepInProgress = false;
             this.prevAutoSleep = false;
+            this.mineFleeTriggered = false;
             return;
         }
         if (ctx.player() == null || ctx.world() == null) return;
 
         checkExperimentalWarning();
         tickSleep();
+        tickMineFlee();
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  LOW-HEALTH MINING FAILSAFE
+    //  While #mine is running, if health drops to/below mineFleeHealth, stop
+    //  everything (like #stop) and run mineFleeCommand (default /home).
+    // ════════════════════════════════════════════════════════════════════════
+
+    private void tickMineFlee() {
+        if (!Baritone.settings().mineFleeOnLowHealth.value) {
+            mineFleeTriggered = false;
+            return;
+        }
+        // Only guard while the mine process is actually running.
+        if (baritone.getMineProcess() == null || !baritone.getMineProcess().isActive()) {
+            mineFleeTriggered = false;
+            return;
+        }
+
+        final float hp = ctx.player().getHealth();
+        if (hp <= 0.0f) return; // already dead — nothing to do
+
+        // Re-arm once health recovers back above the threshold.
+        if (hp > Baritone.settings().mineFleeHealth.value) {
+            mineFleeTriggered = false;
+            return;
+        }
+        if (mineFleeTriggered) return; // already fired for this low-health episode
+        mineFleeTriggered = true;
+
+        final String cmd = Baritone.settings().mineFleeCommand.value;
+        logHelper(String.format("⚠ Health low (%.1f hearts) while mining — stopping and running %s",
+                hp / 2.0f, cmd));
+
+        // #stop: cancel mining + all pathing first.
+        baritone.getPathingBehavior().cancelEverything();
+
+        // Then run the escape command.
+        runFleeCommand(cmd);
+    }
+
+    /** Runs the flee command: {@code /x} → server command, {@code #x} → Baritone command. */
+    private void runFleeCommand(String raw) {
+        try {
+            String c = raw == null ? "" : raw.trim();
+            if (c.isEmpty()) return;
+            if (c.startsWith("#")) {
+                baritone.getCommandManager().execute(c.substring(1));
+            } else {
+                // Server command (Essentials /home etc.) — sendCommand takes it without the slash.
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.getConnection() != null) {
+                    mc.getConnection().sendCommand(c.startsWith("/") ? c.substring(1) : c);
+                }
+            }
+        } catch (Throwable t) {
+            logHelper("Failed to run flee command '" + raw + "': " + t.getMessage());
+        }
     }
 
     // ════════════════════════════════════════════════════════════════════════
