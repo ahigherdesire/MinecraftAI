@@ -100,7 +100,15 @@ processResources {
 }
 
 jar {
-    from sourceSets.main.output, sourceSets.launch.output, sourceSets.api.output, sourceSets.schematica_api.output
+    // NOTE: schematica_api is deliberately NOT bundled. Its fi.dy.masa.* /
+    // com.github.lunatrius.* stub classes share package+class names with the real
+    // Litematica/Schematica mods; bundling them made Fabric load Baritone's stub
+    // Litematica (which isn't a ModInitializer) instead of the real one, crashing
+    // Litematica on startup. The stubs are compile-only — Baritone's integration is
+    // guarded by isLitematicaPresent()/isSchematicaPresent(), so at runtime the real
+    // mod's classes are used (or the feature is skipped when absent). Same pattern as
+    // journeymap_api.
+    from sourceSets.main.output, sourceSets.launch.output, sourceSets.api.output
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
     manifest {
