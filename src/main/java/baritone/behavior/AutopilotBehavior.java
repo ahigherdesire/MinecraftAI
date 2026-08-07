@@ -32,7 +32,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.entity.player.Player;
 
-import java.util.HashMap;
 import java.util.Optional;
 
 /**
@@ -121,12 +120,6 @@ public final class AutopilotBehavior extends Behavior implements AbstractGameEve
                 return;
             }
         }
-        // 3) Inventory reaching N stacks of a single item
-        int depositStacks = Baritone.settings().mineDepositStacks.value;
-        if (depositStacks > 0 && maxItemStacks(p) >= depositStacks) {
-            flee(maxItemStacks(p) + " stacks collected — heading home (deposit into a chest yourself)");
-            return;
-        }
     }
 
     private void flee(String reason) {
@@ -149,22 +142,6 @@ public final class AutopilotBehavior extends Behavior implements AbstractGameEve
             }
         } catch (Throwable ignored) {}
         return null;
-    }
-
-    /** Highest full-(64)-stack count of any single item type in the inventory. */
-    private int maxItemStacks(LocalPlayer p) {
-        try {
-            HashMap<Item, Integer> totals = new HashMap<>();
-            for (ItemStack st : p.getInventory().getNonEquipmentItems()) {
-                if (st == null || st.isEmpty()) continue;
-                totals.merge(st.getItem(), st.getCount(), Integer::sum);
-            }
-            int max = 0;
-            for (int total : totals.values()) max = Math.max(max, total / 64);
-            return max;
-        } catch (Throwable t) {
-            return 0;
-        }
     }
 
     // ── Auto-eat (best effort: the input handler suppresses "use" while actively
