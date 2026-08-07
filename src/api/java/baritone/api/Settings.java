@@ -667,6 +667,22 @@ public final class Settings {
      */
     public final Setting<String> mineFleeCommand = new Setting<>("/home");
 
+    /** While mining, if another player comes within {@link #mineFleePlayerRadius}, stop + run mineFleeCommand. */
+    public final Setting<Boolean> mineFleeOnPlayer = new Setting<>(true);
+    /** Radius (blocks) for the mining "player nearby" failsafe. Default 32. */
+    public final Setting<Double> mineFleePlayerRadius = new Setting<>(32.0);
+
+    /** While mining, auto-eat cooked beef from the hotbar when hunger drops to/below {@link #mineAutoEatHunger}. */
+    public final Setting<Boolean> mineAutoEat = new Setting<>(true);
+    /** Hunger level (out of 20) at/below which auto-eat kicks in while mining. Default 10. */
+    public final Setting<Integer> mineAutoEatHunger = new Setting<>(10);
+
+    /**
+     * While mining, once any single item type reaches this many full (64) stacks, stop + run
+     * mineFleeCommand (e.g. /home). Depositing into a chest is not automated. 0 disables. Default 4.
+     */
+    public final Setting<Integer> mineDepositStacks = new Setting<>(4);
+
     // ════════════════════════════════════════════════════════════════════════
     //  Base finder (#bases) — DBSCAN clustering over cached indicator blocks
     // ════════════════════════════════════════════════════════════════════════

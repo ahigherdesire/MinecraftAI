@@ -22,10 +22,17 @@ import baritone.api.event.events.TickEvent;
 import baritone.api.event.listener.AbstractGameEventListener;
 import baritone.api.pathing.goals.GoalNear;
 import baritone.api.utils.Helper;
+import baritone.api.utils.input.Input;
 import baritone.util.SleepHelper;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.entity.player.Player;
 
+import java.util.HashMap;
 import java.util.Optional;
 
 /**
@@ -45,8 +52,11 @@ public final class AutopilotBehavior extends Behavior implements AbstractGameEve
     /** Set once the auto-sleep watcher has issued a goal for the current night. */
     private boolean sleepInProgress = false;
 
-    /** Latched while health is low so the mining failsafe fires once per low-health episode. */
-    private boolean mineFleeTriggered = false;
+    /** Latched once a mining failsafe has fired, until mining stops. */
+    private boolean mineFled = false;
+
+    /** Whether we're currently forcing the "use" input to eat. */
+    private boolean eatingHeld = false;
 
     /** Tracks {@code autoSleep}'s previous tick value to fire a one-time experimental warning. */
     private boolean prevAutoSleep = false;
@@ -61,53 +71,139 @@ public final class AutopilotBehavior extends Behavior implements AbstractGameEve
             // World unloading — reset state so re-entering re-fires the warning.
             this.sleepInProgress = false;
             this.prevAutoSleep = false;
-            this.mineFleeTriggered = false;
+            this.mineFled = false;
+            setEatingHeld(false);
             return;
         }
         if (ctx.player() == null || ctx.world() == null) return;
 
         checkExperimentalWarning();
         tickSleep();
-        tickMineFlee();
+        tickMineGuards();
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    //  LOW-HEALTH MINING FAILSAFE
-    //  While #mine is running, if health drops to/below mineFleeHealth, stop
-    //  everything (like #stop) and run mineFleeCommand (default /home).
+    //  MINING GUARDS  (only while #mine is running)
+    //   • low health          → #stop + mineFleeCommand (/home)
+    //   • player within range  → #stop + mineFleeCommand (/home)
+    //   • N stacks of one item → #stop + mineFleeCommand (deposit yourself)
+    //   • low hunger           → auto-eat cooked beef from the hotbar
     // ════════════════════════════════════════════════════════════════════════
 
-    private void tickMineFlee() {
-        if (!Baritone.settings().mineFleeOnLowHealth.value) {
-            mineFleeTriggered = false;
+    private void tickMineGuards() {
+        final boolean mining = baritone.getMineProcess() != null && baritone.getMineProcess().isActive();
+        if (!mining) {
+            mineFled = false;
+            setEatingHeld(false);
             return;
         }
-        // Only guard while the mine process is actually running.
-        if (baritone.getMineProcess() == null || !baritone.getMineProcess().isActive()) {
-            mineFleeTriggered = false;
+        final LocalPlayer p = ctx.player();
+        if (p == null) return;
+
+        // Auto-eat runs independently — it doesn't stop mining.
+        tickAutoEat(p);
+
+        if (mineFled) return; // already fled this mining session
+
+        // 1) Low health
+        if (Baritone.settings().mineFleeOnLowHealth.value) {
+            float hp = p.getHealth();
+            if (hp > 0.0f && hp <= Baritone.settings().mineFleeHealth.value) {
+                flee(String.format("Health low (%.1f hearts)", hp / 2.0f));
+                return;
+            }
+        }
+        // 2) Player nearby
+        if (Baritone.settings().mineFleeOnPlayer.value) {
+            String who = nearbyPlayerName(Baritone.settings().mineFleePlayerRadius.value);
+            if (who != null) {
+                flee("Player nearby: " + who);
+                return;
+            }
+        }
+        // 3) Inventory reaching N stacks of a single item
+        int depositStacks = Baritone.settings().mineDepositStacks.value;
+        if (depositStacks > 0 && maxItemStacks(p) >= depositStacks) {
+            flee(maxItemStacks(p) + " stacks collected — heading home (deposit into a chest yourself)");
             return;
         }
+    }
 
-        final float hp = ctx.player().getHealth();
-        if (hp <= 0.0f) return; // already dead — nothing to do
-
-        // Re-arm once health recovers back above the threshold.
-        if (hp > Baritone.settings().mineFleeHealth.value) {
-            mineFleeTriggered = false;
-            return;
-        }
-        if (mineFleeTriggered) return; // already fired for this low-health episode
-        mineFleeTriggered = true;
-
+    private void flee(String reason) {
+        mineFled = true;
+        setEatingHeld(false);
         final String cmd = Baritone.settings().mineFleeCommand.value;
-        logHelper(String.format("⚠ Health low (%.1f hearts) while mining — stopping and running %s",
-                hp / 2.0f, cmd));
-
-        // #stop: cancel mining + all pathing first.
+        logHelper("⚠ " + reason + " while mining — stopping and running " + cmd);
         baritone.getPathingBehavior().cancelEverything();
-
-        // Then run the escape command.
         runFleeCommand(cmd);
+    }
+
+    /** Name of the nearest OTHER player within {@code radius}, or {@code null}. */
+    private String nearbyPlayerName(double radius) {
+        try {
+            final double r2 = radius * radius;
+            final LocalPlayer self = ctx.player();
+            for (Player pl : ctx.world().players()) {
+                if (pl == self || pl == null) continue;
+                if (pl.distanceToSqr(self) <= r2) return pl.getName().getString();
+            }
+        } catch (Throwable ignored) {}
+        return null;
+    }
+
+    /** Highest full-(64)-stack count of any single item type in the inventory. */
+    private int maxItemStacks(LocalPlayer p) {
+        try {
+            HashMap<Item, Integer> totals = new HashMap<>();
+            for (ItemStack st : p.getInventory().getNonEquipmentItems()) {
+                if (st == null || st.isEmpty()) continue;
+                totals.merge(st.getItem(), st.getCount(), Integer::sum);
+            }
+            int max = 0;
+            for (int total : totals.values()) max = Math.max(max, total / 64);
+            return max;
+        } catch (Throwable t) {
+            return 0;
+        }
+    }
+
+    // ── Auto-eat (best effort: the input handler suppresses "use" while actively
+    //    breaking a block, so eating happens in the gaps between breaks) ────────
+
+    private void tickAutoEat(LocalPlayer p) {
+        if (!Baritone.settings().mineAutoEat.value) {
+            setEatingHeld(false);
+            return;
+        }
+        if (p.getFoodData().getFoodLevel() > Baritone.settings().mineAutoEatHunger.value) {
+            setEatingHeld(false); // full enough
+            return;
+        }
+        int slot = hotbarSlotOf(p, Items.COOKED_BEEF);
+        if (slot < 0) slot = hotbarSlotOf(p, Items.BEEF);
+        if (slot < 0) {
+            setEatingHeld(false); // no beef in the hotbar
+            return;
+        }
+        p.getInventory().setSelectedSlot(slot);
+        setEatingHeld(true); // hold "use" to eat
+    }
+
+    private int hotbarSlotOf(LocalPlayer p, Item item) {
+        var items = p.getInventory().getNonEquipmentItems();
+        for (int i = 0; i < 9 && i < items.size(); i++) {
+            ItemStack st = items.get(i);
+            if (st != null && !st.isEmpty() && st.getItem() == item) return i;
+        }
+        return -1;
+    }
+
+    private void setEatingHeld(boolean held) {
+        if (held == eatingHeld) return;
+        eatingHeld = held;
+        try {
+            baritone.getInputOverrideHandler().setInputForceState(Input.CLICK_RIGHT, held);
+        } catch (Throwable ignored) {}
     }
 
     /** Runs the flee command: {@code /x} → server command, {@code #x} → Baritone command. */
