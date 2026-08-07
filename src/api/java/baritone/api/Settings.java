@@ -677,12 +677,6 @@ public final class Settings {
     /** Hunger level (out of 20) at/below which auto-eat kicks in while mining. Default 10. */
     public final Setting<Integer> mineAutoEatHunger = new Setting<>(10);
 
-    /**
-     * While mining, once any single item type reaches this many full (64) stacks, stop + run
-     * mineFleeCommand (e.g. /home). Depositing into a chest is not automated. 0 disables. Default 4.
-     */
-    public final Setting<Integer> mineDepositStacks = new Setting<>(4);
-
     // ════════════════════════════════════════════════════════════════════════
     //  Base finder (#bases) — DBSCAN clustering over cached indicator blocks
     // ════════════════════════════════════════════════════════════════════════
