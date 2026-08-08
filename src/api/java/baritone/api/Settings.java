@@ -677,6 +677,14 @@ public final class Settings {
     /** Hunger level (out of 20) at/below which auto-eat kicks in while mining. Default 10. */
     public final Setting<Integer> mineAutoEatHunger = new Setting<>(10);
 
+    /** While mining, stop + run mineFleeCommand when the held tool's remaining durability drops to/below this. 0 disables. Default 20. */
+    public final Setting<Integer> mineFleeDurability = new Setting<>(20);
+
+    /** Item id counted by {@link #mineFleeItemStacks} (registry path, e.g. "raw_gold"). */
+    public final Setting<String> mineFleeItem = new Setting<>("raw_gold");
+    /** While mining, once you have this many full (64) stacks of {@link #mineFleeItem}, stop + run mineFleeCommand. 0 disables. Default 0. */
+    public final Setting<Integer> mineFleeItemStacks = new Setting<>(0);
+
     // ════════════════════════════════════════════════════════════════════════
     //  Base finder (#bases) — DBSCAN clustering over cached indicator blocks
     // ════════════════════════════════════════════════════════════════════════
