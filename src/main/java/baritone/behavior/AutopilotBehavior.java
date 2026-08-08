@@ -27,6 +27,7 @@ import baritone.util.SleepHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -119,6 +120,44 @@ public final class AutopilotBehavior extends Behavior implements AbstractGameEve
                 flee("Player nearby: " + who);
                 return;
             }
+        }
+        // 3) Held tool durability low
+        int durThreshold = Baritone.settings().mineFleeDurability.value;
+        if (durThreshold > 0) {
+            ItemStack held = p.getInventory().getSelectedItem();
+            if (held != null && !held.isEmpty() && held.isDamageableItem()) {
+                int left = held.getMaxDamage() - held.getDamageValue();
+                if (left <= durThreshold) {
+                    flee("Tool durability low (" + left + " left)");
+                    return;
+                }
+            }
+        }
+        // 4) N full stacks of a specific item (e.g. raw_gold)
+        int itemStacks = Baritone.settings().mineFleeItemStacks.value;
+        if (itemStacks > 0) {
+            String id = Baritone.settings().mineFleeItem.value;
+            int have = stacksOfItem(p, id);
+            if (have >= itemStacks) {
+                flee(have + " stacks of " + id + " collected");
+                return;
+            }
+        }
+    }
+
+    /** Full-(64)-stack count of the item whose registry path equals {@code itemPath}. */
+    private int stacksOfItem(LocalPlayer p, String itemPath) {
+        try {
+            int total = 0;
+            for (ItemStack st : p.getInventory().getNonEquipmentItems()) {
+                if (st == null || st.isEmpty()) continue;
+                if (BuiltInRegistries.ITEM.getKey(st.getItem()).getPath().equalsIgnoreCase(itemPath)) {
+                    total += st.getCount();
+                }
+            }
+            return total / 64;
+        } catch (Throwable t) {
+            return 0;
         }
     }
 
