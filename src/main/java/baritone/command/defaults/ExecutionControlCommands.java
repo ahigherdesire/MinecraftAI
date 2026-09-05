@@ -179,6 +179,9 @@ public class ExecutionControlCommands {
                 if (paused[0]) {
                     paused[0] = false;
                 }
+                // #stop must also end the unattended mining loop, otherwise it
+                // would simply restart whatever we just cancelled.
+                ((baritone.Baritone) baritone).getAutoMineBehavior().stop("stopped by #stop");
                 baritone.getPathingBehavior().cancelEverything();
                 logDirect("ok canceled");
             }

@@ -69,6 +69,9 @@ public class Baritone implements IBaritone {
     private final PathingBehavior pathingBehavior;
     private final LookBehavior lookBehavior;
     private final InventoryBehavior inventoryBehavior;
+    private final AutopilotBehavior autopilotBehavior;
+    private final AutoMineBehavior autoMineBehavior;
+    private final AiBehavior aiBehavior;
     private final InputOverrideHandler inputOverrideHandler;
 
     private final FollowProcess followProcess;
@@ -79,6 +82,7 @@ public class Baritone implements IBaritone {
     private final ExploreProcess exploreProcess;
     private final FarmProcess farmProcess;
     private final InventoryPauserProcess inventoryPauserProcess;
+    private final MenuClickProcess menuClickProcess;
     private final IElytraProcess elytraProcess;
 
     private final PathingControlManager pathingControlManager;
@@ -110,8 +114,11 @@ public class Baritone implements IBaritone {
             this.inventoryBehavior    = this.registerBehavior(InventoryBehavior::new);
             this.inputOverrideHandler = this.registerBehavior(InputOverrideHandler::new);
             this.registerBehavior(WaypointBehavior::new);
-            this.registerBehavior(baritone.behavior.AutopilotBehavior::new);
+            this.autopilotBehavior    = this.registerBehavior(baritone.behavior.AutopilotBehavior::new);
+            this.autoMineBehavior     = this.registerBehavior(baritone.behavior.AutoMineBehavior::new);
             this.registerBehavior(baritone.behavior.ThreatsBehavior::new);
+            this.registerBehavior(baritone.behavior.EspBehavior::new);
+            this.aiBehavior           = this.registerBehavior(baritone.behavior.AiBehavior::new);
         }
 
         this.pathingControlManager = new PathingControlManager(this);
@@ -124,6 +131,7 @@ public class Baritone implements IBaritone {
             this.exploreProcess          = this.registerProcess(ExploreProcess::new);
             this.farmProcess             = this.registerProcess(FarmProcess::new);
             this.inventoryPauserProcess  = this.registerProcess(InventoryPauserProcess::new);
+            this.menuClickProcess        = this.registerProcess(MenuClickProcess::new);
             this.elytraProcess           = this.registerProcess(ElytraProcess::create);
             this.registerProcess(BackfillProcess::new);
         }
@@ -210,6 +218,22 @@ public class Baritone implements IBaritone {
 
     public InventoryPauserProcess getInventoryPauserProcess() {
         return this.inventoryPauserProcess;
+    }
+
+    public MenuClickProcess getMenuClickProcess() {
+        return this.menuClickProcess;
+    }
+
+    public AutopilotBehavior getAutopilotBehavior() {
+        return this.autopilotBehavior;
+    }
+
+    public AutoMineBehavior getAutoMineBehavior() {
+        return this.autoMineBehavior;
+    }
+
+    public AiBehavior getAiBehavior() {
+        return this.aiBehavior;
     }
 
     @Override

@@ -15,6 +15,7 @@ A Minecraft pathfinding bot forked from [Baritone](https://github.com/cabaletta/
 
 > ## What's new in this fork
 >
+> - 🤖 **`#ai`** — hand the controls to a language model: it reads server chat and plays by running the commands below. See **[AI.md](AI.md)**
 > - 👁️ **`#threats`** / **`#players`** — proximity alerts + persistent player sighting log; see everyone who's been near you and navigate to their last position
 > - 🧱 **`#chest <item>`** — silently records every container you open; search by item name and navigate to the result
 > - 🔥 **`#heatmap`** — live JourneyMap overlay scoring every 32×32 block cell by player-activity indicators (blue → yellow → red)

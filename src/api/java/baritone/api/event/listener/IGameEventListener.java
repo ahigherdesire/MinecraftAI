@@ -65,6 +65,14 @@ public interface IGameEventListener {
     void onSendChatMessage(ChatEvent event);
 
     /**
+     * Runs whenever a message arrives from the server: player chat, plugin chat, or system
+     * output. This is what lets the AI read the room.
+     *
+     * @param event The event
+     */
+    void onReceiveChatMessage(ChatReceivedEvent event);
+
+    /**
      * Runs whenever the client player tries to tab complete in chat.
      *
      * @param event The event

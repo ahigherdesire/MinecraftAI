@@ -31,6 +31,7 @@ public final class DefaultCommands {
         Objects.requireNonNull(baritone);
         List<ICommand> commands = new ArrayList<>(Arrays.asList(
                 new HelpCommand(baritone),
+                new AiCommand(baritone),
                 new SetCommand(baritone),
                 new CommandAlias(baritone, Arrays.asList("modified", "mod", "baritone", "modifiedsettings"), "List modified settings", "set modified"),
                 new CommandAlias(baritone, "reset", "Reset all settings or just one", "set reset"),
@@ -81,7 +82,12 @@ public final class DefaultCommands {
                 new HeatmapCommand(baritone),
                 new ChestCommand(baritone),
                 new ThreatsCommand(baritone),
-                new PlayersCommand(baritone)
+                new EspCommand(baritone),
+                new PlayersCommand(baritone),
+                new MenuCommand(baritone),
+                new MineCmdCommand(baritone),
+                new TestRtpCommand(baritone),
+                new TestLegCommand(baritone)
         ));
         ExecutionControlCommands prc = new ExecutionControlCommands(baritone);
         commands.add(prc.pauseCommand);

@@ -6,6 +6,37 @@ All notable changes to this Baritone fork are documented here.
 
 ## [Unreleased] — MC 26.1.2
 
+### Server GUI clicking — `#menu` · Unattended mining loop — `#start minecmd`
+
+Server plugin GUIs (RTP menus, warp pickers, shops) are ordinary chest-style
+`AbstractContainerMenu`s — the server sends real `ItemStack`s as icons and cancels
+the click event. Clicking one is a `windowClick(..., PICKUP, 0)` on the right slot,
+which maps to Bukkit's `ClickType.LEFT`.
+
+- **`#menu dump`** — print every non-empty slot of the open menu: index, registry id,
+  display name, lore. Run this first; matchers are guesswork without it.
+- **`#menu run <command> <chain>`** — send a command, wait for the menu, click through it.
+  Chain entries are `>`-separated and each is `item:<id>`, `slot:<n>`, or a display-name
+  substring. Handles multi-menu chains (menu → submenu) and "Next Page" paging.
+- **`#testrtp` / `#testeat` / `#testdeposit`** — run one leg of the cycle in isolation,
+  so a failure points at a single subsystem instead of the whole loop.
+- **`#start minecmd`** (aliases `#minecmd`, `#automine`) — the full unattended cycle:
+  RTP menu → mine → guard fires → `/home` → recover health → deposit loot → repeat.
+  `#stop` ends it.
+
+Timing is the hard part: the server sends `OpenScreen` *before*
+`ContainerSetContent`, and plugins often repaint a loading layer afterwards. Nothing
+here waits on "is a menu open" — it rescans every tick for the target icon until a
+deadline expires. Every phase has a timeout, so a bad matcher or a missing chest
+cannot wedge the bot.
+
+New settings: `autoMineTarget`, `autoMineTravelCommand`, `autoMineTravelSteps`,
+`menuStepDelay`, `autoMineTeleportDistance`, `autoMineResumeHealth`,
+`autoMineResumeFood`, `autoMineDeposit`, `autoMineDepositBlock`, `autoMineKeep`.
+
+Damageable items (tools, weapons, armour) are never deposited regardless of
+`autoMineKeep` — losing the pickaxe into a chest would end the run.
+
 ### Access control overhaul
 Replaced the UUID allowlist with an **RSA-2048 signed token system**.
 

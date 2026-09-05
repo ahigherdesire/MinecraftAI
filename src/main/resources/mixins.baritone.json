@@ -9,6 +9,7 @@
   },
   "priority": 2000,
   "client": [
+    "MixinChatListener",
     "MixinChunkArray",
     "MixinClientChunkProvider",
     "MixinClientPlayerEntity",

@@ -660,6 +660,7 @@ public final class Settings {
      */
     public final Setting<Boolean> mineFleeOnLowHealth = new Setting<>(true);
     /** Health threshold (out of 20 = 10 hearts) that triggers the mining failsafe. Default 10.0 = half. */
+    /** In <em>half-hearts</em>: 10.0 = 5 hearts, 20.0 = full. */
     public final Setting<Double> mineFleeHealth = new Setting<>(10.0);
     /**
      * Command run when the mining failsafe triggers. {@code /prefix} = server command
@@ -677,13 +678,100 @@ public final class Settings {
     /** Hunger level (out of 20) at/below which auto-eat kicks in while mining. Default 10. */
     public final Setting<Integer> mineAutoEatHunger = new Setting<>(10);
 
-    /** While mining, stop + run mineFleeCommand when the held tool's remaining durability drops to/below this. 0 disables. Default 20. */
-    public final Setting<Integer> mineFleeDurability = new Setting<>(20);
+    /**
+     * Durability floor for mining tools. A tool at or below this is treated as
+     * spent: {@link #itemSaver} stops selecting it and a spare is used instead.
+     * Only once <em>every</em> matching tool is spent does the bot stop and run
+     * {@link #mineFleeCommand}. 0 disables the check entirely.
+     */
+    public final Setting<Integer> mineFleeDurability = new Setting<>(10);
+
+    /**
+     * Substring of the registry path identifying your mining tool, e.g.
+     * {@code pickaxe} matches {@code diamond_pickaxe}, {@code netherite_pickaxe}
+     * and any modded pickaxe. Used to count spares for the durability check.
+     */
+    public final Setting<String> mineToolMatch = new Setting<>("pickaxe");
+
+    /**
+     * While mining, stop + run mineFleeCommand when food drops to/below this.
+     * Food points, not bars — 20 = full, 1 bar = 2 points, so 4 is "two bars left".
+     * 0 disables.
+     */
+    public final Setting<Integer> mineFleeHunger = new Setting<>(4);
+
+    /**
+     * While mining, stop + run mineFleeCommand once there is nowhere left to put
+     * {@link #mineFleeItem} — no empty slot and no partial stack of it. With
+     * {@link #autoMineSeedItem} seeding on, this is the normal way a mining run
+     * ends. On by default.
+     */
+    public final Setting<Boolean> mineFleeWhenFull = new Setting<>(true);
 
     /** Item id counted by {@link #mineFleeItemStacks} (registry path, e.g. "raw_gold"). */
     public final Setting<String> mineFleeItem = new Setting<>("raw_gold");
     /** While mining, once you have this many full (64) stacks of {@link #mineFleeItem}, stop + run mineFleeCommand. 0 disables. Default 0. */
     public final Setting<Integer> mineFleeItemStacks = new Setting<>(0);
+
+    // ── #start minecmd — the unattended mining loop ──────────────────────────
+
+    /** Block(s) the loop mines, comma or space separated. */
+    public final Setting<String> autoMineTarget = new Setting<>("gold_ore");
+
+    /** Command that opens the teleport menu, with or without the leading slash. */
+    public final Setting<String> autoMineTravelCommand = new Setting<>("rtpmenu");
+
+    /**
+     * {@code >}-separated chain of slot matchers clicked through the menus the
+     * travel command opens. Each entry is {@code item:<id>}, {@code slot:<n>},
+     * or a substring of the icon's display name / lore.
+     * <p>Verify yours with {@code #menu dump} while each menu is open.
+     */
+    public final Setting<String> autoMineTravelSteps = new Setting<>("item:heart_of_the_sea>badlands");
+
+    /** Ticks to wait after clicking a menu slot before scanning for the next one. */
+    public final Setting<Integer> menuStepDelay = new Setting<>(10);
+
+    /** Metres of position change that count as "the teleport landed". */
+    public final Setting<Double> autoMineTeleportDistance = new Setting<>(48.0);
+
+    /**
+     * Health the loop waits for before resuming, in <em>half-hearts</em>:
+     * 20 = completely full, 10 = 5 hearts. Default 20 — the bot stays home
+     * until it is back to full health, not merely safe.
+     * <p>Health only regenerates while food is 18 or above, so recovery keeps
+     * eating to hold the food bar topped up as health climbs.
+     */
+    public final Setting<Double> autoMineResumeHealth = new Setting<>(20.0);
+
+    /**
+     * Food level the loop eats up to before resuming (20 = completely full).
+     * <p>Must be at least 18 or vanilla health regeneration never starts and the
+     * recover phase waits for health that can't come back.
+     */
+    public final Setting<Integer> autoMineResumeFood = new Setting<>(20);
+
+    /**
+     * Item seeded one-per-slot into the 27 main inventory slots after depositing,
+     * so mined junk (cobblestone, deepslate) has nowhere to go and is left on the
+     * ground while the ore you want still stacks.
+     * <p>Set this to what mining actually <em>drops</em>: {@code gold_ore} yields
+     * {@code raw_gold} without Silk Touch. Empty disables seeding.
+     */
+    public final Setting<String> autoMineSeedItem = new Setting<>("raw_gold");
+
+    /** Deposit loot into a chest after recovering, before travelling again. */
+    public final Setting<Boolean> autoMineDeposit = new Setting<>(true);
+
+    /** Container block the loop deposits into. */
+    public final Setting<String> autoMineDepositBlock = new Setting<>("chest");
+
+    /**
+     * Registry paths never deposited, comma separated. Damageable gear (tools,
+     * weapons, armour) is always kept regardless of this list.
+     */
+    public final Setting<String> autoMineKeep =
+            new Setting<>("cooked_beef,beef,ender_pearl,water_bucket,torch,cobblestone");
 
     // ════════════════════════════════════════════════════════════════════════
     //  Base finder (#bases) — DBSCAN clustering over cached indicator blocks
@@ -744,6 +832,42 @@ public final class Settings {
      * Some clients like Impact try to force chatControl to off, so here's a second setting to do it anyway
      */
     public final Setting<Boolean> chatControlAnyway = new Setting<>(false);
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  ESP (block + player highlighting) — see EspBehavior / #esp
+    // ════════════════════════════════════════════════════════════════════════
+
+    /** Master toggle for block ESP: outline nearby blocks matching {@link #espBlockList}. Off by default. Toggle with {@code #esp blocks}. */
+    public final Setting<Boolean> espBlocks = new Setting<>(false);
+
+    /**
+     * Blocks to highlight, as a comma/space-separated list of registry-path
+     * substrings — {@code diamond_ore} matches only diamond ore, {@code ore}
+     * matches every ore, {@code _ore,ancient_debris} mixes both. Case-insensitive.
+     */
+    public final Setting<String> espBlockList = new Setting<>(
+            "diamond_ore,deepslate_diamond_ore,ancient_debris,emerald_ore,deepslate_emerald_ore");
+
+    /** Cube half-extent (blocks) scanned around you for block ESP. Bigger = more lag. Default 24. */
+    public final Setting<Integer> espBlockRange = new Setting<>(24);
+
+    /** Ticks between block-ESP rescans (the highlights are cached in between). Default 10. */
+    public final Setting<Integer> espBlockRescanTicks = new Setting<>(10);
+
+    /** Safety cap on how many blocks ESP will outline at once. Default 1000. */
+    public final Setting<Integer> espBlockLimit = new Setting<>(1000);
+
+    /** Master toggle for player ESP: outline other players. Off by default. Toggle with {@code #esp players}. */
+    public final Setting<Boolean> espPlayers = new Setting<>(false);
+
+    /** Max distance (blocks) at which player ESP outlines a player. Default 128. */
+    public final Setting<Double> espPlayerRange = new Setting<>(128.0);
+
+    /** See ESP outlines through walls (ignore depth). Default true. */
+    public final Setting<Boolean> espIgnoreDepth = new Setting<>(true);
+
+    /** Line width of ESP outlines, in pixels. Default 3. */
+    public final Setting<Float> espLineWidthPixels = new Setting<>(3F);
 
     /**
      * Render the path
@@ -1400,6 +1524,12 @@ public final class Settings {
      * The color of the path to the most recent considered node
      */
     public final Setting<Color> colorMostRecentConsidered = new Setting<>(Color.CYAN);
+
+    /** The color of block-ESP outlines. */
+    public final Setting<Color> colorEspBlock = new Setting<>(Color.CYAN);
+
+    /** The color of player-ESP outlines. */
+    public final Setting<Color> colorEspPlayer = new Setting<>(Color.RED);
 
     /**
      * The color of the goal box

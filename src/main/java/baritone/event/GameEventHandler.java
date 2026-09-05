@@ -80,6 +80,11 @@ public final class GameEventHandler implements IEventBus, Helper {
     }
 
     @Override
+    public final void onReceiveChatMessage(ChatReceivedEvent event) {
+        listeners.forEach(l -> l.onReceiveChatMessage(event));
+    }
+
+    @Override
     public void onPreTabComplete(TabCompleteEvent event) {
         listeners.forEach(l -> l.onPreTabComplete(event));
     }

@@ -33,6 +33,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.entity.player.Player;
 
+import java.util.Locale;
 import java.util.Optional;
 
 /**
@@ -94,7 +95,13 @@ public final class AutopilotBehavior extends Behavior implements AbstractGameEve
         final boolean mining = baritone.getMineProcess() != null && baritone.getMineProcess().isActive();
         if (!mining) {
             mineFled = false;
-            setEatingHeld(false);
+            // The loop keeps eating while it waits out health regen, which
+            // doesn't happen at all on an empty food bar.
+            if (recoveryEating && ctx.player() != null) {
+                tickAutoEat(ctx.player());
+            } else {
+                setEatingHeld(false);
+            }
             return;
         }
         final LocalPlayer p = ctx.player();
@@ -113,25 +120,57 @@ public final class AutopilotBehavior extends Behavior implements AbstractGameEve
                 return;
             }
         }
-        // 2) Player nearby
-        if (Baritone.settings().mineFleeOnPlayer.value) {
+        // 1b) Hunger low — auto-eat can only reach the hotbar while mining, and
+        //     at very low food you stop sprinting and stop regenerating, so go
+        //     home and eat properly instead of limping on.
+        int hungerFloor = Baritone.settings().mineFleeHunger.value;
+        if (hungerFloor > 0 && p.getFoodData().getFoodLevel() <= hungerFloor) {
+            flee("Hunger low (" + p.getFoodData().getFoodLevel() + "/20)");
+            return;
+        }
+        // 2) Player nearby — ONLY during the unattended #minecmd loop. A plain
+        //    #mine is attended, so having a passing player yank you home is more
+        //    annoying than useful; the flee-on-player guard belongs to the
+        //    #minecmd/#automine cycle (AutoMineBehavior), not to raw mining.
+        if (Baritone.settings().mineFleeOnPlayer.value && baritone.getAutoMineBehavior().isRunning()) {
             String who = nearbyPlayerName(Baritone.settings().mineFleePlayerRadius.value);
             if (who != null) {
                 flee("Player nearby: " + who);
                 return;
             }
         }
-        // 3) Held tool durability low
+        // 3) No usable tool left.
+        //
+        // Carrying spares is the normal case, so a single worn pickaxe is NOT a
+        // reason to go home — ToolSet.getBestSlot already refuses to select a
+        // tool with <= itemSaverThreshold durability left (provided itemSaver is
+        // on; the mining loop turns it on and syncs the threshold at start), and
+        // InventoryBehavior pulls a fresh one down from the main inventory.
+        // We only flee once every matching tool is worn out.
         int durThreshold = Baritone.settings().mineFleeDurability.value;
         if (durThreshold > 0) {
-            ItemStack held = p.getInventory().getSelectedItem();
-            if (held != null && !held.isEmpty() && held.isDamageableItem()) {
-                int left = held.getMaxDamage() - held.getDamageValue();
-                if (left <= durThreshold) {
-                    flee("Tool durability low (" + left + " left)");
+            String match = Baritone.settings().mineToolMatch.value.trim().toLowerCase(Locale.ROOT);
+            if (!match.isEmpty()) {
+                int total = countTools(p, match, -1);
+                int usable = countTools(p, match, durThreshold);
+                if (total == 0) {
+                    flee("No " + match + " left in inventory", true);
+                    return;
+                }
+                if (usable == 0) {
+                    flee("All " + total + " " + match + "(s) below " + durThreshold + " durability", true);
                     return;
                 }
             }
+        }
+        // 3b) Nowhere left to put the ore.
+        //
+        // With seeding on, every main-inventory slot starts holding one raw_gold
+        // and fills to 64, so "inventory full" is the normal end of a run rather
+        // than an error. Not terminal — going home and depositing fixes it.
+        if (Baritone.settings().mineFleeWhenFull.value && !hasRoomFor(p, Baritone.settings().mineFleeItem.value)) {
+            flee("Inventory full of " + Baritone.settings().mineFleeItem.value);
+            return;
         }
         // 4) N full stacks of a specific item (e.g. raw_gold)
         int itemStacks = Baritone.settings().mineFleeItemStacks.value;
@@ -143,6 +182,69 @@ public final class AutopilotBehavior extends Behavior implements AbstractGameEve
                 return;
             }
         }
+    }
+
+    /**
+     * Count damageable items whose registry path contains {@code match}.
+     *
+     * @param minRemaining only count tools with strictly more than this much
+     *                     durability left; pass -1 to count every one of them
+     */
+    private int countTools(LocalPlayer p, String match, int minRemaining) {
+        int n = 0;
+        try {
+            for (ItemStack st : p.getInventory().getNonEquipmentItems()) {
+                if (st == null || st.isEmpty() || !st.isDamageableItem()) continue;
+                String path = BuiltInRegistries.ITEM.getKey(st.getItem()).getPath().toLowerCase(Locale.ROOT);
+                if (!path.contains(match)) continue;
+                if (minRemaining < 0 || (st.getMaxDamage() - st.getDamageValue()) > minRemaining) {
+                    n++;
+                }
+            }
+        } catch (Throwable ignored) {}
+        return n;
+    }
+
+    /**
+     * Can another {@code itemPath} still be picked up? True if any slot is empty
+     * or any existing stack of it has room. Covers the hotbar as well as the main
+     * inventory, since dropped items land wherever there is space.
+     */
+    private boolean hasRoomFor(LocalPlayer p, String itemPath) {
+        try {
+            for (ItemStack st : p.getInventory().getNonEquipmentItems()) {
+                if (st == null || st.isEmpty()) {
+                    return true;
+                }
+                if (st.getCount() < st.getMaxStackSize()
+                        && BuiltInRegistries.ITEM.getKey(st.getItem()).getPath().equalsIgnoreCase(itemPath)) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (Throwable t) {
+            return true; // never flee on a lookup failure
+        }
+    }
+
+    /** Per-tool durability line for {@code #start status}. */
+    public String toolReport() {
+        LocalPlayer p = ctx.player();
+        if (p == null) return "no player";
+        String match = Baritone.settings().mineToolMatch.value.trim().toLowerCase(Locale.ROOT);
+        int threshold = Baritone.settings().mineFleeDurability.value;
+        StringBuilder sb = new StringBuilder();
+        int n = 0;
+        for (ItemStack st : p.getInventory().getNonEquipmentItems()) {
+            if (st == null || st.isEmpty() || !st.isDamageableItem()) continue;
+            String path = BuiltInRegistries.ITEM.getKey(st.getItem()).getPath().toLowerCase(Locale.ROOT);
+            if (!path.contains(match)) continue;
+            int left = st.getMaxDamage() - st.getDamageValue();
+            if (n > 0) sb.append(", ");
+            sb.append(path).append(' ').append(left).append(left > threshold ? " ok" : " WORN");
+            n++;
+        }
+        return n == 0 ? "no " + match + " found" : n + " found: " + sb;
     }
 
     /** Full-(64)-stack count of the item whose registry path equals {@code itemPath}. */
@@ -161,8 +263,59 @@ public final class AutopilotBehavior extends Behavior implements AbstractGameEve
         }
     }
 
+    /**
+     * Set on each flee so {@link AutoMineBehavior} can pick the cycle up where
+     * the guards left off. Consumed (and cleared) by {@link #consumeFleeEvent()}.
+     */
+    private boolean fleeEvent = false;
+    private String fleeReason = "";
+    /** True when the flee reason cannot fix itself by going home (no usable tool). */
+    private boolean fleeTerminal = false;
+
+    /** True exactly once per flee. */
+    public boolean consumeFleeEvent() {
+        boolean f = fleeEvent;
+        fleeEvent = false;
+        return f;
+    }
+
+    public String lastFleeReason() {
+        return fleeReason;
+    }
+
+    /**
+     * Whether the last flee was terminal — a condition that resting and
+     * depositing cannot clear, so the caller must stop rather than start another
+     * cycle. Running out of usable pickaxes is the case that matters: the loop
+     * would otherwise teleport out, instantly re-trip the durability guard, come
+     * home, and repeat forever.
+     */
+    public boolean lastFleeWasTerminal() {
+        return fleeTerminal;
+    }
+
+    /**
+     * Keep auto-eating even though we aren't mining — used while the loop waits
+     * for health to regenerate, which needs a full food bar to happen at all.
+     */
+    public void setRecoveryEating(boolean on) {
+        this.recoveryEating = on;
+        if (!on) {
+            setEatingHeld(false);
+        }
+    }
+
+    private boolean recoveryEating = false;
+
     private void flee(String reason) {
+        flee(reason, false);
+    }
+
+    private void flee(String reason, boolean terminal) {
         mineFled = true;
+        fleeEvent = true;
+        fleeReason = reason;
+        fleeTerminal = terminal;
         setEatingHeld(false);
         final String cmd = Baritone.settings().mineFleeCommand.value;
         logHelper("⚠ " + reason + " while mining — stopping and running " + cmd);
@@ -191,14 +344,27 @@ public final class AutopilotBehavior extends Behavior implements AbstractGameEve
             setEatingHeld(false);
             return;
         }
-        if (p.getFoodData().getFoodLevel() > Baritone.settings().mineAutoEatHunger.value) {
-            setEatingHeld(false); // full enough
+        // While mining we only top up enough to keep sprinting. While recovering
+        // we have to clear the vanilla health-regen threshold (food >= 18) or
+        // health never comes back and the loop waits forever.
+        final int food = p.getFoodData().getFoodLevel();
+        final boolean enough = recoveryEating
+                ? food >= Baritone.settings().autoMineResumeFood.value
+                : food > Baritone.settings().mineAutoEatHunger.value;
+        if (enough) {
+            setEatingHeld(false);
             return;
         }
         int slot = hotbarSlotOf(p, Items.COOKED_BEEF);
         if (slot < 0) slot = hotbarSlotOf(p, Items.BEEF);
         if (slot < 0) {
-            setEatingHeld(false); // no beef in the hotbar
+            // Nothing on the hotbar — pull a stack down from the main inventory.
+            // Only while recovering: we're stationary then, and an inventory move
+            // mid-mining would fight the block-breaking input.
+            if (recoveryEating && pullFoodToHotbar(p)) {
+                return; // swap requested; it lands within a tick or two
+            }
+            setEatingHeld(false); // no beef anywhere we can reach
             return;
         }
         p.getInventory().setSelectedSlot(slot);
@@ -214,12 +380,73 @@ public final class AutopilotBehavior extends Behavior implements AbstractGameEve
         return -1;
     }
 
+    /**
+     * Holds the real vanilla "use" key down.
+     *
+     * <p>Baritone's own {@code Input.CLICK_RIGHT} cannot eat. It routes to
+     * {@link baritone.utils.BlockPlaceHelper}, which returns early unless the
+     * crosshair is on a {@code HitResult.Type.BLOCK}, and even when it does fire
+     * {@code processRightClick} the eat is cancelled a tick later: this fork has
+     * no keybind mixin, so {@code Minecraft.handleKeybinds()} sees
+     * {@code options.keyUse} up and calls {@code releaseUsingItem}. Eating takes
+     * ~32 continuous ticks, so it never completes — the bot just holds the food.
+     *
+     * <p>Driving {@code keyUse} directly is the vanilla path: it both starts the
+     * use and keeps {@code releaseUsingItem} from firing.
+     *
+     * <p>Re-applied every tick rather than only on transitions, because
+     * {@code KeyMapping.releaseAll()} runs on screen open/close and would
+     * silently drop our held state mid-meal.
+     */
     private void setEatingHeld(boolean held) {
-        if (held == eatingHeld) return;
-        eatingHeld = held;
         try {
-            baritone.getInputOverrideHandler().setInputForceState(Input.CLICK_RIGHT, held);
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.options != null) {
+                if (held) {
+                    // Hold the real "use" key down, re-applied every tick (see
+                    // above — KeyMapping.releaseAll() on screen open/close would
+                    // otherwise drop it mid-meal), and keep the old food-incapable
+                    // Baritone path disarmed while we do.
+                    mc.options.keyUse.setDown(true);
+                    baritone.getInputOverrideHandler().setInputForceState(Input.CLICK_RIGHT, false);
+                } else if (eatingHeld) {
+                    // Release the key ONLY on the transition out of eating, and only
+                    // because we were the ones holding it. Slamming keyUse back to
+                    // "up" on every idle tick is what stopped you from manually
+                    // eating or drawing a bow while the mod is on — so when we
+                    // aren't eating, we now leave the use key entirely alone and
+                    // your own right-clicks come through.
+                    mc.options.keyUse.setDown(false);
+                }
+            }
         } catch (Throwable ignored) {}
+        eatingHeld = held;
+    }
+
+    /** Release the use key no matter what — called on stop and on world unload. */
+    public void releaseEating() {
+        setEatingHeld(false);
+    }
+
+    /**
+     * Move a stack of beef from the main inventory down to the hotbar, because
+     * {@link #hotbarSlotOf} only scans slots 0-8 and the eat path can only
+     * select a hotbar slot.
+     */
+    private boolean pullFoodToHotbar(LocalPlayer p) {
+        var items = p.getInventory().getNonEquipmentItems();
+        for (int i = 9; i < items.size(); i++) {
+            ItemStack st = items.get(i);
+            if (st == null || st.isEmpty()) continue;
+            if (st.getItem() == Items.COOKED_BEEF || st.getItem() == Items.BEEF) {
+                try {
+                    return baritone.getInventoryBehavior().attemptToPutOnHotbar(i, x -> false);
+                } catch (Throwable t) {
+                    return false;
+                }
+            }
+        }
+        return false;
     }
 
     /** Runs the flee command: {@code /x} → server command, {@code #x} → Baritone command. */
